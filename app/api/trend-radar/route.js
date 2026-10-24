@@ -67,9 +67,8 @@ async function fetchGoogleNewsRSS(topicId, hours) {
         link: getCleanLink(linkRaw),
       });
     });
-    // SORT TERBARU DI ATAS - RAPI
     items.sort((a,b) => a.minutesAgo - b.minutesAgo);
-    return items;
+    return items.slice(0,200);
   } catch (e) {
     return [];
   }
@@ -99,8 +98,10 @@ async function fetchBMKG() {
 export async function GET(req) {
   const { searchParams } = new URL(req.url);
   const filterRaw = searchParams.get('filter') || '1 Jam';
+  const isTopParam = searchParams.get('top') === 'true' || filterRaw.includes('Top') || filterRaw.includes('🔥');
   let hours = 1;
-  if (filterRaw.includes('1')) hours = 1;
+  if (isTopParam) hours = 24;
+  else if (filterRaw.includes('1')) hours = 1;
   else if (filterRaw.includes('6')) hours = 6;
   else if (filterRaw.includes('24')) hours = 24;
 
@@ -115,21 +116,27 @@ export async function GET(req) {
     }
     if (headlines.length === 0 && id === 'bencana' && bmkgLive) headlines = [bmkgLive];
 
-    // FINAL SORT - TERBARU DI ATAS
     headlines.sort((a,b) => (a.minutesAgo||9999) - (b.minutesAgo||9999));
+    headlines = headlines.slice(0,200);
 
     return {
       id,
       title: TOPIC_META[id].title,
       icon: TOPIC_META[id].icon,
       volume: `${headlines.length} berita`,
-      velocity: `+${Math.floor(Math.random()*60)+5}%`,
+      velocity: isTopParam ? `🔥 Top ${headlines.length}` : `+${Math.floor(Math.random()*60)+5}%`,
       sentiment: id === 'pdip' ? 'Negatif 72%' : id === 'bencana' ? 'Negatif' : id === 'puan' ? 'Positif 54%' : 'Campur',
       sentimentColor: id === 'bencana' || id === 'pdip' ? '#ef4444' : id === 'puan' ? '#22c55e' : '#eab308',
-      lastUpdate: `dalam ${hours} jam terakhir`,
+      lastUpdate: isTopParam ? 'Top News • 24 jam' : `dalam ${hours} jam terakhir`,
       headlines: headlines,
+      isTopNews: isTopParam,
     };
   }));
 
-  return NextResponse.json({ success: true, filter: filterRaw, hours, maxMinutes, lastSync: new Date().toISOString(), topics: results });
+  let finalResults = results;
+  if (isTopParam) {
+    finalResults.sort((a,b) => b.headlines.length - a.headlines.length);
+  }
+
+  return NextResponse.json({ success: true, filter: filterRaw, hours, maxMinutes, isTop: isTopParam, lastSync: new Date().toISOString(), topics: finalResults });
 }
