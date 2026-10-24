@@ -12,7 +12,7 @@ const TOPIC_QUERIES = {
 const TOPIC_META = {
   jakarta: { title: 'Jakarta', icon: '🏙️' },
   nasional: { title: 'Berita Nasional', icon: '📰' },
-  bencana: { title: 'Bencana Terkini', icon: '🌋', isBencana: true },
+  bencana: { title: 'Bencana Terkini', icon: '🌋' },
   pdip: { title: 'PDI Perjuangan', icon: '🐂' },
   megawati: { title: 'Megawati Soekarnoputri', icon: '👩‍🦳' },
   puan: { title: 'Puan Maharani', icon: '👩‍💼' },
@@ -56,7 +56,6 @@ async function fetchGoogleNewsRSS(topicId, hours) {
       items.push({
         id: i + 1, source: source.trim().slice(0, 20), time: formatTimeAgo(minutesAgo), minutesAgo, pubDate: pubDateStr,
         title: cleanTitle, summary: cheerio.load(description).text().slice(0, 120), url: getCleanLink(linkRaw), link: getCleanLink(linkRaw),
-        tags: [`#${topicId}`], topik: cleanTitle, kategori: topicId === 'bencana' ? 'Bencana' : 'Nasional',
       });
     });
     return items;
@@ -66,7 +65,7 @@ async function fetchBMKG() {
   try {
     const res = await fetch('https://data.bmkg.go.id/DataMKG/TEWS/autogempa.json', { next: { revalidate: 60 } });
     const json = await res.json(); const info = json?.Infogempa?.gempa; if (!info) return null;
-    return { id: 999, source: 'BMKG', time: 'Baru saja', minutesAgo: 1, title: `Gempa M ${info.Magnitude} ${info.Wilayah}`, summary: `${info.Kedalaman} • ${info.Jam} WIB`, url: 'https://www.bmkg.go.id', link: 'https://www.bmkg.go.id', tags: ['#Gempa'], isBMKG: true, topik: `Gempa M ${info.Magnitude} ${info.Wilayah}`, kategori: 'Bencana' };
+    return { id: 999, source: 'BMKG', time: 'Baru saja', minutesAgo: 1, title: `Gempa M ${info.Magnitude} ${info.Wilayah}`, summary: `${info.Kedalaman} • ${info.Jam} WIB`, url: 'https://www.bmkg.go.id', link: 'https://www.bmkg.go.id', isBMKG: true };
   } catch { return null; }
 }
 export async function GET(req) {
@@ -83,12 +82,9 @@ export async function GET(req) {
     if (headlines.length === 0 && id === 'bencana' && bmkgLive) headlines = [bmkgLive];
     return {
       id, title: TOPIC_META[id].title, icon: TOPIC_META[id].icon, volume: `${headlines.length} berita`,
-      velocity: TOPIC_META[id].isBencana ? `+${150 + Math.floor(Math.random()*80)}%` : `+${Math.floor(Math.random()*60)+5}%`,
-      sentiment: id === 'pdip' ? 'Negatif 72%' : id === 'bencana' ? 'Negatif' : id === 'puan' ? 'Positif 54%' : 'Campur',
+      velocity: `+${Math.floor(Math.random()*60)+5}%`, sentiment: id === 'pdip' ? 'Negatif 72%' : id === 'bencana' ? 'Negatif' : id === 'puan' ? 'Positif 54%' : 'Campur',
       sentimentColor: id === 'bencana' || id === 'pdip' ? '#ef4444' : id === 'puan' ? '#22c55e' : '#eab308',
-      hot: id === 'bencana' || id === 'pdip' || headlines.length >= 3, lastUpdate: `dalam ${hours} jam terakhir`,
-      headlines: headlines,
-      hooks: [`${TOPIC_META[id].title}: Sisi yang Tidak Diceritakan`], keywords: [{ k: `#${id}`, v: `↑${Math.floor(Math.random()*200)+10}%` }],
+      lastUpdate: `dalam ${hours} jam terakhir`, headlines: headlines,
     };
   }));
   return NextResponse.json({ success: true, status: 'success', filter: filterRaw, hours, maxMinutes, lastSync: new Date().toISOString(), topics: results });
