@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import * as cheerio from 'cheerio';
 export const dynamic = 'force-dynamic';
-
 const TOPIC_QUERIES = {
   jakarta: 'Jakarta',
   nasional: 'berita nasional Indonesia',
@@ -18,7 +17,6 @@ const TOPIC_META = {
   megawati: { title: 'Megawati Soekarnoputri', icon: '👩‍🦳' },
   puan: { title: 'Puan Maharani', icon: '👩‍💼' },
 };
-
 function getCleanLink(raw) {
   try {
     if (!raw) return '#';
@@ -34,7 +32,6 @@ function formatTimeAgo(minutes) {
   if (minutes < 1440) return `${Math.floor(minutes/60)}j lalu`;
   return `${Math.floor(minutes/1440)}h lalu`;
 }
-
 async function fetchGoogleNewsRSS(topicId, hours) {
   const baseQuery = TOPIC_QUERIES[topicId] || topicId;
   const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(baseQuery + ` when:${hours}h`)}&hl=id&gl=ID&ceid=ID:id`;
@@ -60,7 +57,6 @@ async function fetchGoogleNewsRSS(topicId, hours) {
         time: formatTimeAgo(minutesAgo),
         minutesAgo,
         pubDate: pubDateStr,
-        pubTimestamp: pubDate.getTime(),
         title: cleanTitle,
         summary: cheerio.load(description).text().slice(0, 120),
         url: getCleanLink(linkRaw),
@@ -69,32 +65,17 @@ async function fetchGoogleNewsRSS(topicId, hours) {
     });
     items.sort((a,b) => a.minutesAgo - b.minutesAgo);
     return items.slice(0,200);
-  } catch (e) {
-    return [];
-  }
+  } catch (e) { return []; }
 }
-
 async function fetchBMKG() {
   try {
     const res = await fetch('https://data.bmkg.go.id/DataMKG/TEWS/autogempa.json', { next: { revalidate: 60 } });
     const json = await res.json();
     const info = json?.Infogempa?.gempa;
     if (!info) return null;
-    return { 
-      id: 'bmkg-1', 
-      source: 'BMKG', 
-      time: 'Baru saja', 
-      minutesAgo: 0, 
-      pubTimestamp: Date.now(),
-      title: `Gempa M ${info.Magnitude} ${info.Wilayah}`, 
-      summary: `${info.Kedalaman} • ${info.Jam} WIB • ${info.Potensi}`, 
-      url: 'https://www.bmkg.go.id', 
-      link: 'https://www.bmkg.go.id', 
-      isBMKG: true 
-    };
+    return { id: 'bmkg-1', source: 'BMKG', time: 'Baru saja', minutesAgo: 0, title: `Gempa M ${info.Magnitude} ${info.Wilayah}`, summary: `${info.Kedalaman} • ${info.Jam} WIB`, url: 'https://www.bmkg.go.id', link: 'https://www.bmkg.go.id', isBMKG: true };
   } catch { return null; }
 }
-
 export async function GET(req) {
   const { searchParams } = new URL(req.url);
   const filterRaw = searchParams.get('filter') || '1 Jam';
@@ -104,39 +85,27 @@ export async function GET(req) {
   else if (filterRaw.includes('1')) hours = 1;
   else if (filterRaw.includes('6')) hours = 6;
   else if (filterRaw.includes('24')) hours = 24;
-
   const maxMinutes = hours * 60;
   const bmkgLive = await fetchBMKG();
   const topicIds = Object.keys(TOPIC_QUERIES);
-
   const results = await Promise.all(topicIds.map(async (id) => {
     let headlines = await fetchGoogleNewsRSS(id, hours);
-    if (id === 'bencana' && bmkgLive && bmkgLive.minutesAgo <= maxMinutes) {
-      headlines = [bmkgLive, ...headlines.filter(h => !h.isBMKG)];
-    }
+    if (id === 'bencana' && bmkgLive && bmkgLive.minutesAgo <= maxMinutes) headlines = [bmkgLive, ...headlines.filter(h => !h.isBMKG)];
     if (headlines.length === 0 && id === 'bencana' && bmkgLive) headlines = [bmkgLive];
-
     headlines.sort((a,b) => (a.minutesAgo||9999) - (b.minutesAgo||9999));
     headlines = headlines.slice(0,200);
-
     return {
       id,
       title: TOPIC_META[id].title,
       icon: TOPIC_META[id].icon,
       volume: `${headlines.length} berita`,
-      velocity: isTopParam ? `🔥 Top ${headlines.length}` : `+${Math.floor(Math.random()*60)+5}%`,
+      velocity: isTopParam ? `🔥 Top` : `+${Math.floor(Math.random()*60)+5}%`,
       sentiment: id === 'pdip' ? 'Negatif 72%' : id === 'bencana' ? 'Negatif' : id === 'puan' ? 'Positif 54%' : 'Campur',
       sentimentColor: id === 'bencana' || id === 'pdip' ? '#ef4444' : id === 'puan' ? '#22c55e' : '#eab308',
       lastUpdate: isTopParam ? 'Top News • 24 jam' : `dalam ${hours} jam terakhir`,
       headlines: headlines,
-      isTopNews: isTopParam,
     };
   }));
-
-  let finalResults = results;
-  if (isTopParam) {
-    finalResults.sort((a,b) => b.headlines.length - a.headlines.length);
-  }
-
-  return NextResponse.json({ success: true, filter: filterRaw, hours, maxMinutes, isTop: isTopParam, lastSync: new Date().toISOString(), topics: finalResults });
+  // JANGAN SORT POSISI BOARD - BIAR TETAP JAKARTA, NASIONAL, BENCANA, PDIP, MEGAWATI, PUAN
+  return NextResponse.json({ success: true, filter: filterRaw, hours, maxMinutes, isTop: isTopParam, lastSync: new Date().toISOString(), topics: results });
 }
