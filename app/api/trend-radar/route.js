@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import * as cheerio from 'cheerio';
 export const dynamic = 'force-dynamic';
 
-// FIX CRASH - HOMELESS MEDIA VIA GOOGLE TAPI ANTI ERROR
+// HOMELESS MEDIA HANYA MUNCUL DI 24 JAM - 1 JAM & 6 JAM KOSONG
 const TOPIC_QUERIES = {
   jakarta: 'Pemprov DKI Jakarta OR Gubernur DKI Jakarta OR DPRD DKI',
   nasional: 'berita nasional Indonesia',
@@ -62,60 +62,31 @@ function isRelevant(title, topicId) {
   } catch { return true; }
 }
 
-// SCRAPING IG @totalpolitikcom VIA GOOGLE - VERSI AMAN ANTI CRASH
 async function fetchInstagramTotalPolitikViaGoogleSafe(hours) {
-  // Timeout 4 detik biar gak bikin Vercel timeout 10 detik
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 4000);
-
   try {
-    // Coba 1 query aja yang paling stabil, sesuai screenshot lo: "instagram @totalpolitik"
     const q = 'instagram @totalpolitikcom';
-    let tbs = 'qdr:d';
-    if (hours === 1) tbs = 'qdr:h';
-    if (hours === 6) tbs = 'qdr:h';
-
-    const url = `https://www.google.com/search?q=${encodeURIComponent(q)}&tbs=${tbs}&num=20&hl=id&gl=ID`;
-
+    const url = `https://www.google.com/search?q=${encodeURIComponent(q)}&tbs=qdr:d&num=20&hl=id&gl=ID`;
     const res = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-        'Accept-Language': 'id-ID,id;q=0.9',
-      },
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36', 'Accept-Language': 'id-ID,id;q=0.9' },
       signal: controller.signal,
       cache: 'no-store',
       next: { revalidate: 60 }
     });
-
     clearTimeout(timeout);
-
     if (!res.ok) return [];
     const html = await res.text();
-    if (!html || html.length < 1000) return [];
-    // Kalau Google ngasih CAPTCHA page, langsung return []
-    if (html.includes('Our systems have detected unusual traffic') || html.includes('unusual traffic') || html.includes('recaptcha')) {
-      return [];
-    }
-
+    if (!html || html.includes('Our systems have detected unusual traffic') || html.includes('recaptcha')) return [];
     const $ = cheerio.load(html);
     const items = [];
-
     $('a[href*="instagram.com"]').each((i, el) => {
       try {
         let href = $(el).attr('href') || '';
-        if (!href) return;
         if (href.startsWith('/url?q=')) {
-          try {
-            const u = new URL('https://www.google.com' + href);
-            href = u.searchParams.get('q') || href;
-          } catch {}
+          try { const u = new URL('https://www.google.com' + href); href = u.searchParams.get('q') || href; } catch {}
         }
         if (!href.includes('instagram.com')) return;
-        if (!href.includes('totalpolitikcom')) {
-          const txt = $(el).text().toLowerCase();
-          if (!txt.includes('totalpolitik')) return;
-        }
-
         let title = $(el).find('h3').text().trim() || $(el).text().trim();
         if (title.length < 15) {
           const parent = $(el).closest('div.g');
@@ -123,7 +94,6 @@ async function fetchInstagramTotalPolitikViaGoogleSafe(hours) {
           if (snippet.length > title.length) title = snippet;
         }
         if (title.length < 15) return;
-
         items.push({
           id: `homeless-${i}-${Date.now()}`,
           source: 'Instagram • totalpolitikcom',
@@ -135,17 +105,13 @@ async function fetchInstagramTotalPolitikViaGoogleSafe(hours) {
         });
       } catch {}
     });
-
-    // dedup
     const seen = new Set();
     const uniq = [];
-    for (const it of items) {
-      if (!seen.has(it.link)) { seen.add(it.link); uniq.push(it); }
-    }
-    return uniq.slice(0, 30);
-  } catch (e) {
+    for (const it of items) { if (!seen.has(it.link)) { seen.add(it.link); uniq.push(it); } }
+    return uniq.slice(0, 50);
+  } catch {
     clearTimeout(timeout);
-    return []; // JANGAN THROW, BIAR GAK CRASH PAGE
+    return [];
   }
 }
 
@@ -153,18 +119,10 @@ async function fetchGoogleNewsRSSSafe(topicId, hours) {
   try {
     const baseQuery = TOPIC_QUERIES[topicId] || topicId;
     const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(baseQuery + ` when:${hours}h`)}&hl=id&gl=ID&ceid=ID:id`;
-    
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 4000);
-
-    const res = await fetch(rssUrl, { 
-      headers: { 'User-Agent': 'Mozilla/5.0' }, 
-      signal: controller.signal,
-      next: { revalidate: 60 }, 
-      cache: 'no-store' 
-    });
+    const res = await fetch(rssUrl, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: controller.signal, next: { revalidate: 60 }, cache: 'no-store' });
     clearTimeout(timeout);
-
     if (!res.ok) return [];
     const xml = await res.text();
     const $ = cheerio.load(xml, { xmlMode: true });
@@ -193,9 +151,7 @@ async function fetchGoogleNewsRSSSafe(topicId, hours) {
     });
     items.sort((a,b) => a.minutesAgo - b.minutesAgo);
     return items.slice(0,50);
-  } catch (e) {
-    return [];
-  }
+  } catch { return []; }
 }
 
 async function fetchBMKG() {
@@ -222,23 +178,36 @@ export async function GET(req) {
     const bmkgLive = await fetchBMKG().catch(() => null);
     const topicOrder = ['jakarta','nasional','bencana','pdip','megawati','puan','kritik_publik','dedi_mulyadi','keluarga_jokowi','homeless_media'];
 
-    // Pakai allSettled biar 1 topic error gak bikin semua crash
     const results = await Promise.all(topicOrder.map(async (id) => {
       try {
-        let headlines = [];
+        // KHUSUS HOMELESS MEDIA: HANYA MUNCUL DI 24 JAM
         if (id === 'homeless_media') {
-          // Coba Google dulu (kayak screenshot lo), kalau gagal fallback ke RSS
-          headlines = await fetchInstagramTotalPolitikViaGoogleSafe(hours);
-          if (headlines.length === 0) {
-            headlines = await fetchGoogleNewsRSSSafe(id, hours);
+          if (hours !== 24) {
+            return {
+              id,
+              title: TOPIC_META[id].title,
+              icon: TOPIC_META[id].icon,
+              volume: `0 berita`,
+              lastUpdate: `hanya di 24 jam terakhir`,
+              headlines: [],
+            };
           }
-          // Kalau masih 0, coba tanpa filter jam (24 jam)
-          if (headlines.length === 0 && hours !== 24) {
-            headlines = await fetchGoogleNewsRSSSafe(id, 24);
-          }
-        } else {
-          headlines = await fetchGoogleNewsRSSSafe(id, hours);
+          // kalau 24 jam baru scraping
+          let headlines = await fetchInstagramTotalPolitikViaGoogleSafe(hours);
+          if (headlines.length === 0) headlines = await fetchGoogleNewsRSSSafe(id, hours);
+          if (headlines.length === 0) headlines = await fetchGoogleNewsRSSSafe(id, 24);
+          headlines.sort((a,b) => (a.minutesAgo||9999) - (b.minutesAgo||9999));
+          return {
+            id,
+            title: TOPIC_META[id].title,
+            icon: TOPIC_META[id].icon,
+            volume: `${headlines.length} berita`,
+            lastUpdate: `IG @totalpolitikcom via Google • 24 jam`,
+            headlines: headlines.slice(0,50),
+          };
         }
+
+        let headlines = await fetchGoogleNewsRSSSafe(id, hours);
         if (id === 'bencana' && bmkgLive) headlines = [bmkgLive, ...headlines.filter(h => !h.isBMKG)].slice(0,50);
         headlines.sort((a,b) => (a.minutesAgo||9999) - (b.minutesAgo||9999));
         return {
@@ -246,11 +215,10 @@ export async function GET(req) {
           title: TOPIC_META[id].title,
           icon: TOPIC_META[id].icon,
           volume: `${headlines.length} berita`,
-          lastUpdate: id === 'homeless_media' ? `IG @totalpolitikcom via Google • ${hours}j` : `dalam ${hours} jam terakhir`,
+          lastUpdate: `dalam ${hours} jam terakhir`,
           headlines: headlines.slice(0,50),
         };
-      } catch (e) {
-        // JANGAN THROW, return kosong biar page tetap load
+      } catch {
         return {
           id,
           title: TOPIC_META[id].title,
@@ -264,7 +232,6 @@ export async function GET(req) {
 
     return NextResponse.json({ success: true, filter: filterRaw, hours, lastSync: new Date().toISOString(), topics: results });
   } catch (e) {
-    // Global fallback biar gak pernah "This page couldn't load"
     return NextResponse.json({ 
       success: false, 
       error: e.message, 
@@ -273,9 +240,9 @@ export async function GET(req) {
         title: TOPIC_META[id].title,
         icon: TOPIC_META[id].icon,
         volume: '0 berita',
-        lastUpdate: 'error, coba reload',
+        lastUpdate: 'error',
         headlines: []
       }))
-    }, { status: 200 }); // return 200 bukan 500 biar gak trigger Next.js error boundary
+    }, { status: 200 });
   }
 }
