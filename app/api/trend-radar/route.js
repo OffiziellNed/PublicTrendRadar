@@ -1,22 +1,33 @@
 import { NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 
-// 11 MENU - CRITERIA LENGKAP - SOSIAL VIRAL + KRIMINAL + FIX MEGAWATI ATLET
+// 11 MENU - MULTI QUERY FIX - SOSIAL & KRIMINAL DIPECAH BIAR GAK 0 LAGI
 const TOPIC_QUERIES = {
-  jakarta: 'Jakarta OR DKI Jakarta OR Pemprov DKI',
-  nasional: 'berita nasional Indonesia',
-  bencana: 'bencana OR gempa OR banjir OR longsor OR erupsi',
-  pdip: 'PDIP OR PDI Perjuangan',
-  // FIX MEGAWATI: jangan pakai kata Megawati doang, harus ada konteks politik
-  megawati: 'Megawati Soekarnoputri OR Ketua Umum PDIP OR Bu Mega PDIP',
-  puan: 'Puan Maharani',
-  kritik_publik: 'kritik pemerintah OR demo OR unjuk rasa OR protes publik',
-  dedi_mulyadi: 'Dedi Mulyadi OR KDM',
-  keluarga_jokowi: 'Jokowi OR Gibran OR Kaesang OR Keluarga Jokowi',
-  // SOSIAL & VIRAL - KRITERIA LENGKAP
-  sosial: '(viral OR fenomena sosial OR curhatan netizen OR curhat viral OR video viral OR kisah haru OR kisah mengharukan OR cerita unik OR fenomena aneh OR anomali OR inspiratif OR kisah inspiratif OR tradisi unik OR kejadian lucu OR video lucu OR tingkah aneh OR kelakuan unik OR driver ojol OR ojek online OR nenek viral OR kakek viral OR netizen heboh OR tiktok viral OR viral medsos)',
-  // KRIMINAL - KRITERIA LENGKAP
-  kriminal: '(kriminal OR pembunuhan OR pembunuhan sadis OR narkoba OR sabu OR ganja OR ekstasi OR pengedaran narkoba OR curanmor OR maling OR pencurian OR curat OR curas OR perampokan OR begal OR jambret OR todong OR penodongan OR KDRT OR kekerasan rumah tangga OR penganiayaan OR pengeroyokan OR pembacokan OR penembakan OR pemerkosaan OR pelecehan seksual OR penipuan OR penggelapan OR mayat ditemukan OR mutilasi OR tawuran OR pengrusakan OR korupsi)',
+  jakarta: ['Jakarta OR DKI Jakarta'],
+  nasional: ['berita nasional Indonesia'],
+  bencana: ['bencana OR gempa OR banjir'],
+  pdip: ['PDIP OR PDI Perjuangan'],
+  megawati: ['Megawati Soekarnoputri OR Ketua Umum PDIP'],
+  puan: ['Puan Maharani'],
+  kritik_publik: ['kritik pemerintah OR demo OR unjuk rasa'],
+  dedi_mulyadi: ['Dedi Mulyadi OR KDM'],
+  keluarga_jokowi: ['Jokowi OR Gibran OR Keluarga Jokowi'],
+  // SOSIAL: pecah jadi 5 query kecil, bukan 1 query panjang 20 OR
+  sosial: [
+    'viral',
+    'kisah inspiratif OR cerita unik OR kisah haru',
+    'video viral OR tiktok viral OR viral medsos',
+    'fenomena sosial OR fenomena aneh OR anomali OR tradisi unik',
+    'curhatan netizen OR driver ojol OR nenek viral OR kejadian lucu'
+  ],
+  // KRIMINAL: pecah jadi 5 query kecil
+  kriminal: [
+    'kriminal',
+    'pembunuhan OR pembunuhan sadis',
+    'narkoba OR sabu OR ganja OR ekstasi',
+    'curanmor OR maling OR pencurian OR perampokan OR begal',
+    'KDRT OR penganiayaan OR pemerkosaan OR tawuran OR mayat ditemukan'
+  ],
 };
 
 const TOPIC_META = {
@@ -64,38 +75,57 @@ function clusterHeadlines(headlines, threshold=0.38){
   return clusters.map((cluster, idx)=>{ const main=cluster[0]; const allSources=[...new Set(cluster.map(c=>c.source))]; return { id:`cluster-${idx}`, isCluster:cluster.length>1, count:cluster.length, title:main.title, mainUrl:main.url, time:main.time, minutesAgo:main.minutesAgo, sources:allSources, headlines:cluster }; });
 }
 
-async function fetchRSS(topicId, hours){
+async function fetchSingleQuery(q, hours){
   try{
-    let q = TOPIC_QUERIES[topicId];
-    const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(q)}+when%3A${hours}h&hl=id&gl=ID&ceid=ID:id`;
+    // cara lama yang work: encode q + " when:XXh" jadi satu
+    const fullQ = `${q} when:${hours}h`;
+    const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(fullQ)}&hl=id&gl=ID&ceid=ID:id`;
     const res = await fetch(rssUrl, { headers: { 'User-Agent': 'Mozilla/5.0' }, cache: 'no-store' });
     if(!res.ok) return [];
     const xml = await res.text();
-    const rawItems = parseRSS(xml);
+    return parseRSS(xml);
+  }catch{ return []; }
+}
 
+async function fetchRSS(topicId, hours){
+  try{
+    const queries = TOPIC_QUERIES[topicId] || [topicId];
+    let allRaw = [];
+
+    // untuk sosial & kriminal, fetch 5 query kecil terus gabung
+    for(const q of queries){
+      const raw = await fetchSingleQuery(q, hours);
+      allRaw = allRaw.concat(raw);
+      // kasih jeda dikit biar gak rate limit (gak perlu await sleep, cukup langsung)
+    }
+
+    // dedup by title
+    const seen = new Set();
     const items=[];
-    for(let i=0;i<rawItems.length;i++){
-      const { titleFull, linkRaw, pubDateStr, source } = rawItems[i];
+    for(let i=0;i<allRaw.length;i++){
+      const { titleFull, linkRaw, pubDateStr, source } = allRaw[i];
       const pubDate = new Date(pubDateStr);
       const minutesAgo = isNaN(pubDate.getTime()) ? 9999 : Math.floor((Date.now()-pubDate.getTime())/60000);
       if(minutesAgo > hours*60 + 180) continue;
       const cleanTitle = (titleFull.split(' - ')[0] || titleFull).trim();
       if(!cleanTitle) continue;
+      const key = cleanTitle.toLowerCase();
+      if(seen.has(key)) continue;
+      seen.add(key);
+
       const t = cleanTitle.toLowerCase();
 
-      // FILTER MEGAWATI - HAPUS ATLET VOLI
+      // FILTER MEGAWATI ATLET
       if(topicId==='megawati'){
-        const atletKeywords = ['voli','volley','pevoli','hangestri','red sparks','megatron','proliga','timnas voli','atlet voli','voli putri','megawati hangestri','megawati manise'];
+        const atletKeywords = ['voli','volley','pevoli','hangestri','red sparks','megatron','proliga','timnas voli','atlet voli','voli putri','megawati hangestri'];
         if(atletKeywords.some(k => t.includes(k))) continue;
-        // harus ada konteks politik PDIP kalau cuma "mega"
-        if(!(t.includes('megawati') || t.includes('ketua umum pdip') || t.includes('pdip') || t.includes('bu mega'))) continue;
       }
-
       if(topicId==='jakarta' && !(t.includes('jakarta')||t.includes('dki'))) continue;
       if(topicId==='puan' && !t.includes('puan')) continue;
 
-      items.push({ id:`${topicId}-${i}`, source:(source||'Google News').slice(0,30), time:formatTimeAgo(minutesAgo), minutesAgo, title:cleanTitle, url:linkRaw.replace(/&amp;/g,'&'), link:linkRaw.replace(/&amp;/g,'&') });
+      items.push({ id:`${topicId}-${i}-${Math.random().toString(36).slice(2,6)}`, source:(source||'Google News').slice(0,30), time:formatTimeAgo(minutesAgo), minutesAgo, title:cleanTitle, url:linkRaw.replace(/&amp;/g,'&'), link:linkRaw.replace(/&amp;/g,'&') });
     }
+
     items.sort((a,b)=>a.minutesAgo-b.minutesAgo);
     return items.slice(0,20);
   }catch{ return []; }
