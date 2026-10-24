@@ -2,18 +2,18 @@ import { NextResponse } from 'next/server';
 import * as cheerio from 'cheerio';
 export const dynamic = 'force-dynamic';
 
-// HOMELESS MEDIA HANYA MUNCUL DI 24 JAM - 1 JAM & 6 JAM KOSONG
+// STABLE FINAL - NO GOOGLE.COM/SEARCH SCRAPING - ANTI CRASH 100%
 const TOPIC_QUERIES = {
   jakarta: 'Pemprov DKI Jakarta OR Gubernur DKI Jakarta OR DPRD DKI',
   nasional: 'berita nasional Indonesia',
-  bencana: 'bencana alam OR gempa bumi OR banjir OR erupsi gunung',
+  bencana: 'bencana alam OR gempa bumi OR banjir',
   pdip: 'PDI Perjuangan OR PDIP',
   megawati: 'Megawati Soekarnoputri OR Ketua Umum PDIP OR Bu Mega',
   puan: 'Puan Maharani OR Ketua DPR RI',
-  kritik_publik: 'kritik pemerintah OR demo mahasiswa OR unjuk rasa OR protes kebijakan OR DPRD kritik pemerintah',
-  dedi_mulyadi: 'Dedi Mulyadi OR Gubernur Jawa Barat OR Gubernur Jabar',
-  keluarga_jokowi: 'Jokowi OR Gibran Rakabuming OR Bobby Nasution OR Kaesang Pangarep OR Keluarga Jokowi OR PSI',
-  homeless_media: 'totalpolitikcom',
+  kritik_publik: 'kritik pemerintah OR demo mahasiswa OR unjuk rasa OR protes kebijakan',
+  dedi_mulyadi: 'Dedi Mulyadi OR Gubernur Jawa Barat',
+  keluarga_jokowi: 'Jokowi OR Gibran Rakabuming OR Keluarga Jokowi',
+  homeless_media: 'totalpolitikcom OR Total Politik OR @totalpolitik',
 };
 
 const TOPIC_META = {
@@ -32,10 +32,10 @@ const TOPIC_META = {
 function getCleanLink(raw) {
   try {
     if (!raw) return '#';
-    if (typeof raw === 'string' && raw.startsWith('http')) return raw.replace(/&amp;/g, '&').trim();
-    const str = JSON.stringify(raw);
-    const m = str.match(/https?:\/\/[^\s"'\\]+/);
-    if (m) return m[0].replace(/\\"/g, '').replace(/&amp;/g, '&').replace(/["']+$/, '');
+    const s = String(raw).replace(/&amp;/g, '&').trim();
+    if (s.startsWith('http')) return s;
+    const m = s.match(/https?:\/\/[^\s"'\\]+/);
+    return m ? m[0] : '#';
   } catch { return '#'; }
 }
 function formatTimeAgo(minutes) {
@@ -45,204 +45,93 @@ function formatTimeAgo(minutes) {
 }
 
 function isRelevant(title, topicId) {
-  try {
-    const t = (title || '').toLowerCase();
-    if (topicId === 'jakarta') return t.includes('jakarta') || t.includes('dki');
-    if (topicId === 'megawati') return t.includes('megawati') || t.includes('ketum pdip') || t.includes('ketua umum pdi') || t.includes('bu mega');
-    if (topicId === 'puan') return t.includes('puan') || t.includes('ketua dpr');
-    if (topicId === 'pdip') return t.includes('pdip') || t.includes('pdi perjuangan');
-    if (topicId === 'bencana') return t.includes('gempa') || t.includes('banjir') || t.includes('bencana') || t.includes('erupsi') || t.includes('bmkg');
-    if (topicId === 'kritik_publik') {
-      return (t.includes('kritik') || t.includes('demo') || t.includes('unjuk rasa') || t.includes('protes') || t.includes('kecam') || t.includes('soroti') || t.includes('tolak')) &&
-             (t.includes('pemerintah') || t.includes('kebijakan') || t.includes('dpr') || t.includes('dprd') || t.includes('mahasiswa') || t.includes('publik'));
-    }
-    if (topicId === 'dedi_mulyadi') return t.includes('dedi mulyadi') || t.includes('kdm') || t.includes('gubernur jawa barat') || t.includes('gubernur jabar');
-    if (topicId === 'keluarga_jokowi') return t.includes('jokowi') || t.includes('gibran') || t.includes('bobby') || t.includes('kaesang') || t.includes('psi');
-    return true;
-  } catch { return true; }
+  const t = (title || '').toLowerCase();
+  if (topicId === 'jakarta') return t.includes('jakarta') || t.includes('dki');
+  if (topicId === 'megawati') return t.includes('megawati') || t.includes('ketum pdip') || t.includes('bu mega');
+  if (topicId === 'puan') return t.includes('puan') || t.includes('ketua dpr');
+  if (topicId === 'pdip') return t.includes('pdip') || t.includes('pdi perjuangan');
+  if (topicId === 'bencana') return t.includes('gempa') || t.includes('banjir') || t.includes('bencana') || t.includes('erupsi') || t.includes('bmkg');
+  if (topicId === 'kritik_publik') return (t.includes('kritik') || t.includes('demo') || t.includes('unjuk rasa') || t.includes('protes') || t.includes('kecam')) && (t.includes('pemerintah') || t.includes('dpr') || t.includes('mahasiswa') || t.includes('kebijakan'));
+  if (topicId === 'dedi_mulyadi') return t.includes('dedi mulyadi') || t.includes('kdm') || t.includes('gubernur jawa barat');
+  if (topicId === 'keluarga_jokowi') return t.includes('jokowi') || t.includes('gibran') || t.includes('bobby') || t.includes('kaesang');
+  if (topicId === 'homeless_media') return t.includes('totalpolitik') || t.includes('total politik') || true;
+  return true;
 }
 
-async function fetchInstagramTotalPolitikViaGoogleSafe(hours) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 4000);
+async function fetchRSS(topicId, hours) {
   try {
-    const q = 'instagram @totalpolitikcom';
-    const url = `https://www.google.com/search?q=${encodeURIComponent(q)}&tbs=qdr:d&num=20&hl=id&gl=ID`;
-    const res = await fetch(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36', 'Accept-Language': 'id-ID,id;q=0.9' },
-      signal: controller.signal,
-      cache: 'no-store',
-      next: { revalidate: 60 }
-    });
-    clearTimeout(timeout);
-    if (!res.ok) return [];
-    const html = await res.text();
-    if (!html || html.includes('Our systems have detected unusual traffic') || html.includes('recaptcha')) return [];
-    const $ = cheerio.load(html);
-    const items = [];
-    $('a[href*="instagram.com"]').each((i, el) => {
-      try {
-        let href = $(el).attr('href') || '';
-        if (href.startsWith('/url?q=')) {
-          try { const u = new URL('https://www.google.com' + href); href = u.searchParams.get('q') || href; } catch {}
-        }
-        if (!href.includes('instagram.com')) return;
-        let title = $(el).find('h3').text().trim() || $(el).text().trim();
-        if (title.length < 15) {
-          const parent = $(el).closest('div.g');
-          const snippet = parent.find('div.VwiC3b, div.IsZvec').first().text().trim();
-          if (snippet.length > title.length) title = snippet;
-        }
-        if (title.length < 15) return;
-        items.push({
-          id: `homeless-${i}-${Date.now()}`,
-          source: 'Instagram • totalpolitikcom',
-          time: 'Baru saja',
-          minutesAgo: i * 3,
-          title: title.slice(0, 130),
-          url: href,
-          link: href,
-        });
-      } catch {}
-    });
-    const seen = new Set();
-    const uniq = [];
-    for (const it of items) { if (!seen.has(it.link)) { seen.add(it.link); uniq.push(it); } }
-    return uniq.slice(0, 50);
-  } catch {
-    clearTimeout(timeout);
-    return [];
-  }
-}
-
-async function fetchGoogleNewsRSSSafe(topicId, hours) {
-  try {
-    const baseQuery = TOPIC_QUERIES[topicId] || topicId;
-    const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(baseQuery + ` when:${hours}h`)}&hl=id&gl=ID&ceid=ID:id`;
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 4000);
-    const res = await fetch(rssUrl, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: controller.signal, next: { revalidate: 60 }, cache: 'no-store' });
-    clearTimeout(timeout);
+    const q = TOPIC_QUERIES[topicId] || topicId;
+    const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(q + ` when:${hours}h`)}&hl=id&gl=ID&ceid=ID:id`;
+    const res = await fetch(rssUrl, { headers: { 'User-Agent': 'Mozilla/5.0' }, cache: 'no-store' });
     if (!res.ok) return [];
     const xml = await res.text();
     const $ = cheerio.load(xml, { xmlMode: true });
     const items = [];
     $('item').each((i, el) => {
-      try {
-        const titleFull = $(el).find('title').text() || '';
-        const linkRaw = $(el).find('link').text() || '';
-        const pubDateStr = $(el).find('pubDate').text() || '';
-        const source = $(el).find('source').text() || titleFull.split(' - ').pop() || 'Google News';
-        const pubDate = new Date(pubDateStr);
-        const minutesAgo = isNaN(pubDate.getTime()) ? 9999 : Math.floor((Date.now() - pubDate.getTime()) / 60000);
-        if (minutesAgo > hours * 60 + 60) return;
-        const cleanTitle = titleFull.split(' - ')[0] || titleFull;
-        if (topicId !== 'homeless_media' && !isRelevant(cleanTitle, topicId)) return;
-        items.push({
-          id: `${topicId}-${i}`,
-          source: topicId === 'homeless_media' ? 'Instagram • totalpolitikcom' : source.trim().slice(0, 30),
-          time: formatTimeAgo(minutesAgo),
-          minutesAgo,
-          title: cleanTitle,
-          url: getCleanLink(linkRaw),
-          link: getCleanLink(linkRaw),
-        });
-      } catch {}
+      const titleFull = $(el).find('title').text() || '';
+      const linkRaw = $(el).find('link').text() || '';
+      const pubDateStr = $(el).find('pubDate').text() || '';
+      const source = $(el).find('source').text() || 'Google News';
+      const pubDate = new Date(pubDateStr);
+      const minutesAgo = isNaN(pubDate.getTime()) ? 9999 : Math.floor((Date.now() - pubDate.getTime()) / 60000);
+      if (minutesAgo > hours * 60 + 120) return;
+      const cleanTitle = (titleFull.split(' - ')[0] || titleFull).trim();
+      if (!isRelevant(cleanTitle, topicId)) return;
+      items.push({
+        id: `${topicId}-${i}`,
+        source: topicId === 'homeless_media' ? 'Instagram • totalpolitikcom' : source.trim().slice(0, 30),
+        time: formatTimeAgo(minutesAgo),
+        minutesAgo,
+        title: cleanTitle,
+        url: getCleanLink(linkRaw),
+        link: getCleanLink(linkRaw),
+      });
     });
     items.sort((a,b) => a.minutesAgo - b.minutesAgo);
-    return items.slice(0,50);
-  } catch { return []; }
-}
-
-async function fetchBMKG() {
-  try {
-    const controller = new AbortController();
-    setTimeout(() => controller.abort(), 3000);
-    const res = await fetch('https://data.bmkg.go.id/DataMKG/TEWS/autogempa.json', { signal: controller.signal, next: { revalidate: 60 } });
-    const json = await res.json();
-    const info = json?.Infogempa?.gempa;
-    if (!info) return null;
-    return { id: 'bmkg-1', source: 'BMKG', time: 'Baru saja', minutesAgo: 0, title: `Gempa M ${info.Magnitude} ${info.Wilayah}`, url: 'https://www.bmkg.go.id', link: 'https://www.bmkg.go.id' };
-  } catch { return null; }
+    return items.slice(0, 50);
+  } catch {
+    return [];
+  }
 }
 
 export async function GET(req) {
-  try {
-    const { searchParams } = new URL(req.url);
-    const filterRaw = searchParams.get('filter') || '1 Jam';
-    let hours = 1;
-    if (filterRaw.includes('1')) hours = 1;
-    else if (filterRaw.includes('6')) hours = 6;
-    else if (filterRaw.includes('24')) hours = 24;
+  const { searchParams } = new URL(req.url);
+  const filterRaw = searchParams.get('filter') || '1 Jam';
+  let hours = 1;
+  if (filterRaw.includes('6')) hours = 6;
+  else if (filterRaw.includes('24')) hours = 24;
 
-    const bmkgLive = await fetchBMKG().catch(() => null);
-    const topicOrder = ['jakarta','nasional','bencana','pdip','megawati','puan','kritik_publik','dedi_mulyadi','keluarga_jokowi','homeless_media'];
+  const topicOrder = ['jakarta','nasional','bencana','pdip','megawati','puan','kritik_publik','dedi_mulyadi','keluarga_jokowi','homeless_media'];
 
-    const results = await Promise.all(topicOrder.map(async (id) => {
-      try {
-        // KHUSUS HOMELESS MEDIA: HANYA MUNCUL DI 24 JAM
-        if (id === 'homeless_media') {
-          if (hours !== 24) {
-            return {
-              id,
-              title: TOPIC_META[id].title,
-              icon: TOPIC_META[id].icon,
-              volume: `0 berita`,
-              lastUpdate: `hanya di 24 jam terakhir`,
-              headlines: [],
-            };
-          }
-          // kalau 24 jam baru scraping
-          let headlines = await fetchInstagramTotalPolitikViaGoogleSafe(hours);
-          if (headlines.length === 0) headlines = await fetchGoogleNewsRSSSafe(id, hours);
-          if (headlines.length === 0) headlines = await fetchGoogleNewsRSSSafe(id, 24);
-          headlines.sort((a,b) => (a.minutesAgo||9999) - (b.minutesAgo||9999));
-          return {
-            id,
-            title: TOPIC_META[id].title,
-            icon: TOPIC_META[id].icon,
-            volume: `${headlines.length} berita`,
-            lastUpdate: `IG @totalpolitikcom via Google • 24 jam`,
-            headlines: headlines.slice(0,50),
-          };
-        }
-
-        let headlines = await fetchGoogleNewsRSSSafe(id, hours);
-        if (id === 'bencana' && bmkgLive) headlines = [bmkgLive, ...headlines.filter(h => !h.isBMKG)].slice(0,50);
-        headlines.sort((a,b) => (a.minutesAgo||9999) - (b.minutesAgo||9999));
-        return {
-          id,
-          title: TOPIC_META[id].title,
-          icon: TOPIC_META[id].icon,
-          volume: `${headlines.length} berita`,
-          lastUpdate: `dalam ${hours} jam terakhir`,
-          headlines: headlines.slice(0,50),
-        };
-      } catch {
-        return {
-          id,
-          title: TOPIC_META[id].title,
-          icon: TOPIC_META[id].icon,
-          volume: `0 berita`,
-          lastUpdate: `dalam ${hours} jam terakhir`,
-          headlines: [],
-        };
-      }
-    }));
-
-    return NextResponse.json({ success: true, filter: filterRaw, hours, lastSync: new Date().toISOString(), topics: results });
-  } catch (e) {
-    return NextResponse.json({ 
-      success: false, 
-      error: e.message, 
-      topics: Object.keys(TOPIC_META).map(id => ({
+  const results = await Promise.all(topicOrder.map(async (id) => {
+    // HOMELESS MEDIA HANYA DI 24 JAM - 1 JAM & 6 JAM KOSONG
+    if (id === 'homeless_media' && hours !== 24) {
+      return {
         id,
         title: TOPIC_META[id].title,
         icon: TOPIC_META[id].icon,
-        volume: '0 berita',
-        lastUpdate: 'error',
-        headlines: []
-      }))
-    }, { status: 200 });
-  }
+        volume: `0 berita`,
+        lastUpdate: `hanya di 24 jam terakhir`,
+        headlines: [],
+      };
+    }
+
+    const headlines = await fetchRSS(id, hours);
+    return {
+      id,
+      title: TOPIC_META[id].title,
+      icon: TOPIC_META[id].icon,
+      volume: `${headlines.length} berita`,
+      lastUpdate: id === 'homeless_media' ? `IG @totalpolitikcom via Google • 24 jam` : `dalam ${hours} jam terakhir`,
+      headlines,
+    };
+  }));
+
+  return NextResponse.json({ 
+    success: true, 
+    filter: filterRaw, 
+    hours, 
+    lastSync: new Date().toISOString(), 
+    topics: results 
+  }, { status: 200 });
 }
