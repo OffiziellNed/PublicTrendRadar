@@ -70,11 +70,8 @@ export default function AgoraVadaPortal() {
             ...t,
             headlines: [...(t.headlines || [])].sort((a,b) => (a.minutesAgo||9999) - (b.minutesAgo||9999)).slice(0,200)
           }));
-          if (isTop) {
-            // TOP NEWS = sort by volume terbanyak + velocity tertinggi
-            sortedTopics.sort((a,b) => (b.headlines.length - a.headlines.length));
-            sortedTopics = sortedTopics.map(t => ({...t, title: t.title, isTopNews: true}));
-          }
+          // JANGAN PINDAH POSISI BOARD PAS TOP NEWS - BIAR TETAP URUTAN ASLI
+          // sortedTopics.sort() dihapus
           setTrendTopics(sortedTopics);
         }
       } catch (e) {}
@@ -184,7 +181,6 @@ export default function AgoraVadaPortal() {
     setUrlBerita(selectedHeadline.url); setSumberBerita(selectedHeadline.source);
     setCurrentPage(1); setShowDetail(false);
   };
-
   return (
     <div style={{ width: '100%', minHeight: '100vh', backgroundColor: '#0a0a0f', color: '#fff' }}>
       <style>{`
@@ -207,7 +203,7 @@ export default function AgoraVadaPortal() {
                 {['1 Jam', '6 Jam', '24 Jam'].map(f => (
                   <button key={f} onClick={() => setTrendTimeFilter(f)} style={{ padding: '6px 14px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', border: '1px solid #30363d', backgroundColor: trendTimeFilter === f ? '#fff' : '#161b22', color: trendTimeFilter === f ? '#000' : '#c9d1d9', cursor: 'pointer' }}>{f}</button>
                 ))}
-                <button onClick={() => setTrendTimeFilter('🔥 Top News')} style={{ padding: '6px 14px', borderRadius: '20px', fontSize: '12px', fontWeight: '700', border: '1px solid #f85149', backgroundColor: trendTimeFilter.includes('Top') ? '#f85149' : '#161b22', color: trendTimeFilter.includes('Top') ? '#fff' : '#f85149', cursor: 'pointer', display:'flex', alignItems:'center', gap:'4px' }}>🔥 Top News</button>
+                <button onClick={() => setTrendTimeFilter('🔥 Top News')} style={{ padding: '6px 14px', borderRadius: '20px', fontSize: '12px', fontWeight: '700', border: '1px solid #f85149', backgroundColor: trendTimeFilter.includes('Top') ? '#f85149' : '#161b22', color: trendTimeFilter.includes('Top') ? '#fff' : '#f85149', cursor: 'pointer' }}>🔥 Top News</button>
                 <div style={{ padding: '6px 14px', borderRadius: '20px', fontSize: '11px', backgroundColor: '#161b22', border: '1px solid #30363d', color: '#22c55e' }} className="mono">● LIVE {trendLoading ? 'sync...' : 'ON'}</div>
               </div>
             </div>
@@ -218,18 +214,16 @@ export default function AgoraVadaPortal() {
                   <div key={topic.id} style={{ backgroundColor: '#161b22', border: '1px solid #30363d', borderRadius: '16px', padding: '18px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
                       <div style={{ width: '48px', height: '48px', backgroundColor: '#0d1117', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', border: '1px solid #30363d' }}>{topic.icon}</div>
-                      <div><div style={{ fontWeight: '700', fontSize: '15px' }}>{topic.isTopNews ? '🔥 ' : ''}{topic.title}</div><div className="mono" style={{ fontSize: '11px', color: '#8b949e' }}>{topic.volume} • {topic.lastUpdate}</div></div>
+                      <div><div style={{ fontWeight: '700', fontSize: '15px' }}>{topic.title}</div><div className="mono" style={{ fontSize: '11px', color: '#8b949e' }}>{topic.volume} • {topic.lastUpdate}</div></div>
                     </div>
                     <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
-                      <div className="mono" style={{ fontSize: '11px', backgroundColor: '#0d1117', border: '1px solid #30363d', padding: '4px 8px', borderRadius: '6px', color: '#c9d1d9' }}>{topic.volume}</div>
-                      <div className="mono" style={{ fontSize: '11px', backgroundColor: '#0d1117', border: '1px solid #30363d', padding: '4px 8px', borderRadius: '6px', color: '#c9d1d9' }}>{topic.velocity} 🔥</div>
+                      <div className="mono" style={{ fontSize: '11px', backgroundColor: '#0d1117', border: '1px solid #30363d', padding: '4px 8px', borderRadius: '6px' }}>{topic.volume}</div>
+                      <div className="mono" style={{ fontSize: '11px', backgroundColor: '#0d1117', border: '1px solid #30363d', padding: '4px 8px', borderRadius: '6px' }}>{topic.velocity} 🔥</div>
                       <div style={{ fontSize: '11px', backgroundColor: '#0d1117', border: '1px solid #30363d', padding: '4px 8px', borderRadius: '6px', color: topic.sentimentColor }}>{topic.sentiment}</div>
                     </div>
                     <div style={{ marginBottom: '14px' }}>
                       {sortedPreview.slice(0, 2).map(h => (
-                        <div key={h.id} style={{ fontSize: '12px', color: '#8b949e', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: '4px' }}>
-                          • {h.title} <span className="mono" style={{fontSize:'10px', color:'#58a6ff'}}>({h.time})</span>
-                        </div>
+                        <div key={h.id} style={{ fontSize: '12px', color: '#8b949e', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: '4px' }}>• {h.title} <span className="mono" style={{fontSize:'10px', color:'#58a6ff'}}>({h.time})</span></div>
                       ))}
                     </div>
                     <button onClick={() => openDetail(topic)} style={{ width: '100%', backgroundColor: '#fff', color: '#000', padding: '10px', borderRadius: '10px', fontWeight: '700', fontSize: '12px', border: 'none', cursor: 'pointer' }}>Cek Sekarang</button>
@@ -243,8 +237,8 @@ export default function AgoraVadaPortal() {
                   <div style={{ padding: '16px 20px', borderBottom: '1px solid #30363d', display: 'flex', justifyContent: 'space-between', flexShrink: 0, backgroundColor: '#0d1117' }}>
                     <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                       <button onClick={() => setShowDetail(false)} style={{ backgroundColor: '#21262d', border: '1px solid #30363d', color: '#fff', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' }}>← Kembali</button>
-                      <div style={{ fontWeight: '800' }}>{selectedTopic.isTopNews ? '🔥 ' : ''}{selectedTopic.icon} {selectedTopic.title}</div>
-                      <div className="mono" style={{ fontSize: '11px', color: '#8b949e' }}>{trendTimeFilter} • {selectedTopic.headlines.length} berita • terbaru di atas</div>
+                      <div style={{ fontWeight: '800' }}>{selectedTopic.icon} {selectedTopic.title}</div>
+                      <div className="mono" style={{ fontSize: '11px', color: '#8b949e' }}>{trendTimeFilter} • {selectedTopic.headlines.length} berita</div>
                     </div>
                     <button onClick={() => setShowDetail(false)} style={{ background: 'none', border: 'none', color: '#8b949e', fontSize: '20px', cursor: 'pointer' }}>×</button>
                   </div>
@@ -256,13 +250,8 @@ export default function AgoraVadaPortal() {
                           <div key={h.id} onClick={() => setSelectedHeadline(h)} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px', borderRadius: '10px', backgroundColor: isSelected ? '#1f6feb20' : '#161b22', border: `1px solid ${isSelected ? '#1f6feb' : '#30363d'}`, cursor: 'pointer' }}>
                             <input type="radio" name="singleHeadline" checked={isSelected} readOnly style={{ accentColor: '#1f6feb' }} />
                             <div style={{ flex: 1 }}>
-                              <div style={{ fontSize: '10px', display:'flex', gap:'8px' }} className="mono">
-                                <span style={{color:'#58a6ff'}}>{h.time}</span>
-                                <span style={{color:'#8b949e'}}>{h.source}</span>
-                                <span style={{color: h.minutesAgo < 30 ? '#22c55e' : '#8b949e'}}>{h.minutesAgo < 30 ? '● BARU' : ''}</span>
-                              </div>
+                              <div style={{ fontSize: '10px', display:'flex', gap:'8px' }} className="mono"><span style={{color:'#58a6ff'}}>{h.time}</span><span style={{color:'#8b949e'}}>{h.source}</span></div>
                               <div style={{ fontWeight: '600', fontSize: '13px', marginTop: '4px' }}>{h.title}</div>
-                              <div style={{ fontSize: '11px', color: '#8b949e', marginTop: '2px' }}>{h.summary}</div>
                             </div>
                             <a href={h.url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ width: '36px', height: '36px', backgroundColor: '#0d1117', border: '1px solid #30363d', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', fontSize: '16px', cursor: 'pointer', flexShrink:0 }}>🔗</a>
                           </div>
@@ -271,7 +260,7 @@ export default function AgoraVadaPortal() {
                     </div>
                   </div>
                   <div style={{ padding: '12px 16px', borderTop: '1px solid #30363d', backgroundColor: '#161b22', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink:0, borderBottomLeftRadius: '16px', borderBottomRightRadius: '16px' }}>
-                    <div className="mono" style={{ fontSize: '11px', color: '#8b949e' }}>{selectedHeadline ? `Dipilih: ${selectedHeadline.time} - ${selectedHeadline.source}` : 'Pilih 1 berita'}</div>
+                    <div className="mono" style={{ fontSize: '11px', color: '#8b949e' }}>{selectedHeadline ? `Dipilih: ${selectedHeadline.time}` : 'Pilih 1 berita'}</div>
                     <button onClick={handleJadikanBerita} disabled={!selectedHeadline} style={{ padding: '10px 16px', backgroundColor: selectedHeadline ? '#1f6feb' : '#30363d', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: '700', cursor: selectedHeadline ? 'pointer' : 'not-allowed', fontSize: '12px' }}>→ Jadikan Berita</button>
                   </div>
                 </div>
