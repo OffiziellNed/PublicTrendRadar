@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 
-// 11 MENU - STRICT FILTER - FIX NGACO UBED FRENCH OPEN MASUK KDM & KEMNAKER MASUK PDIP
+// 11 MENU - SOSIAL VIRAL ALL IN - LUCU WARGA + DILUAR NALAR + SOSIAL KAMPUNG
 const TOPIC_QUERIES = {
   jakarta: ['Pemprov DKI Jakarta OR Gubernur DKI'],
   nasional: ['berita nasional Indonesia'],
@@ -12,32 +12,40 @@ const TOPIC_QUERIES = {
   kritik_publik: ['kritik pemerintah OR demo mahasiswa OR unjuk rasa'],
   dedi_mulyadi: ['Dedi Mulyadi OR Gubernur Jawa Barat'],
   keluarga_jokowi: ['Jokowi OR Gibran OR Keluarga Jokowi'],
+  // SOSIAL & VIRAL - ALL IN SESUAI DISKUSI
   sosial: [
-    'fenomena sosial OR curhatan netizen',
-    'video viral OR tiktok viral',
-    'kisah haru OR cerita unik OR inspiratif',
-    'fenomena aneh OR anomali OR tradisi unik OR viral'
+    'viral OR video viral OR tiktok viral OR viral medsos',
+    'fenomena sosial OR curhatan netizen OR curhat viral OR netizen heboh',
+    'kisah haru OR kisah mengharukan OR kisah inspiratif OR inspiratif',
+    'cerita unik OR kejadian unik OR tradisi unik OR ritual unik',
+    'fenomena aneh OR anomali OR kejadian aneh OR di luar nalar OR gak masuk akal OR diluar nalar',
+    'kejadian lucu OR tingkah lucu OR kelakuan lucu OR aksi kocak OR kocak OR ngakak OR bikin ngakak OR lawak',
+    'emak-emak OR bapak-bapak OR bocil OR bocah OR kakek viral OR nenek viral OR ojol OR ojek online',
+    'kelakuan warga OR tingkah warga OR potret warga OR warga +62 OR nyeleneh OR absurd OR ajaib OR nyentrik OR prank OR usil OR jahil OR hajatan OR arisan OR gotong royong'
   ],
   kriminal: [
     'pembunuhan OR pembunuhan sadis',
-    'narkoba OR sabu OR ganja',
+    'narkoba OR sabu OR ganja OR ekstasi',
     'curanmor OR maling OR pencurian OR perampokan OR begal',
-    'KDRT OR penganiayaan OR pengeroyokan',
-    'pemerkosaan OR penipuan OR mayat ditemukan'
+    'KDRT OR penganiayaan OR pengeroyokan OR pembacokan',
+    'pemerkosaan OR penipuan OR mayat ditemukan OR mutilasi OR tawuran'
   ],
 };
 
 const TOPIC_FILTERS = {
   jakarta: ['jakarta','dki'],
   nasional: ['nasional','indonesia'],
-  bencana: ['bencana','gempa','banjir','longsor','erupsi','gunung meletus'],
+  bencana: ['bencana','gempa','banjir','longsor','erupsi'],
   pdip: ['pdip','pdi perjuangan','pdi-p'],
   megawati: ['megawati','mega soekarnoputri','ketua umum pdip','bu mega'],
   puan: ['puan maharani','puan'],
-  kritik_publik: ['kritik','demo','unjuk rasa','protes','desak mundur'],
+  kritik_publik: ['kritik','demo','unjuk rasa','protes'],
   dedi_mulyadi: ['dedi mulyadi','kdm','gubernur jawa barat','kang dedi'],
-  keluarga_jokowi: ['jokowi','gibran','kaesang','keluarga jokowi','bobby','jan ethes'],
-  sosial: ['viral','fenomena sosial','curhatan','curhat','video viral','kisah haru','cerita unik','fenomena aneh','anomali','inspiratif','tradisi unik','kejadian lucu','netizen','tiktok','nenek viral','ojol'],
+  keluarga_jokowi: ['jokowi','gibran','kaesang','keluarga jokowi'],
+  // FILTER SOSIAL - ALL IN
+  sosial: [
+    'viral','video viral','tiktok','fenomena sosial','curhatan','curhat','netizen','kisah haru','mengharukan','inspiratif','cerita unik','kejadian unik','tradisi unik','fenomena aneh','anomali','aneh','di luar nalar','diluar nalar','gak masuk akal','lucu','kocak','ngakak','bikin ngakak','lawak','humor','tingkah','kelakuan','aksi kocak','emak-emak','bapak-bapak','bocil','bocah','kakek','nenek','ojol','ojek','warga','warga +62','kelakuan warga','tingkah warga','potret warga','nyeleneh','absurd','ajaib','nyentrik','prank','usil','jahil','hajatan','arisan','gotong royong','meme'
+  ],
   kriminal: ['kriminal','bunuh','narkoba','sabu','ganja','curanmor','maling','curi','rampok','begal','jambret','kdrt','aniaya','keroyok','bacok','tembak','perkosa','leceh','tipu','mayat','mutilasi','tawuran'],
 };
 
@@ -104,6 +112,11 @@ async function fetchRSS(topicId, hours){
     const results = await Promise.all(queries.map(q => fetchSingleQuery(q, hours)));
     results.forEach(r => allRaw = allRaw.concat(r));
 
+    if (allRaw.length === 0 && (topicId === 'sosial' || topicId === 'kriminal')) {
+      const fallbackQ = topicId === 'sosial' ? 'viral OR kocak OR lucu' : 'kriminal OR pembunuhan';
+      allRaw = await fetchSingleQuery(fallbackQ, 24);
+    }
+
     const seen = new Set();
     const items=[];
     const requiredKeywords = TOPIC_FILTERS[topicId] || [];
@@ -112,7 +125,9 @@ async function fetchRSS(topicId, hours){
       const { titleFull, linkRaw, pubDateStr, source } = allRaw[i];
       const pubDate = new Date(pubDateStr);
       const minutesAgo = isNaN(pubDate.getTime()) ? 9999 : Math.floor((Date.now()-pubDate.getTime())/60000);
-      if(minutesAgo > hours*60 + 180) continue;
+      if(minutesAgo > hours*60 + 180) {
+        if(!(topicId==='sosial' || topicId==='kriminal') || minutesAgo > 24*60+180) continue;
+      }
       const cleanTitle = (titleFull.split(' - ')[0] || titleFull).trim();
       if(!cleanTitle) continue;
       const key = cleanTitle.toLowerCase();
@@ -120,12 +135,10 @@ async function fetchRSS(topicId, hours){
       seen.add(key);
       const t = key;
 
-      // STRICT FILTER - WAJIB MENGANDUNG KEYWORD TOPIK
       if(requiredKeywords.length > 0){
         if(!requiredKeywords.some(k => t.includes(k))) continue;
       }
 
-      // EXTRA FIX MEGAWATI ATLET
       if(topicId==='megawati'){
         const atletKeywords = ['voli','volley','pevoli','hangestri','red sparks','megatron','proliga','timnas voli','atlet voli','voli putri'];
         if(atletKeywords.some(k => t.includes(k))) continue;
@@ -134,7 +147,7 @@ async function fetchRSS(topicId, hours){
       items.push({ id:`${topicId}-${i}`, source:(source||'Google News').slice(0,30), time:formatTimeAgo(minutesAgo), minutesAgo, title:cleanTitle, url:linkRaw.replace(/&amp;/g,'&'), link:linkRaw.replace(/&amp;/g,'&') });
     }
     items.sort((a,b)=>a.minutesAgo-b.minutesAgo);
-    return items.slice(0,20);
+    return items.slice(0,25);
   }catch{ return []; }
 }
 
@@ -152,7 +165,7 @@ export async function GET(req){
     const results = await Promise.all(topicOrder.map(async (id)=>{
       const headlines = await fetchRSS(id, hours);
       const clustered = clusterHeadlines(headlines);
-      return { id, title: TOPIC_META[id].title, icon: TOPIC_META[id].icon, volume: `${headlines.length} berita • ${clustered.length} isu`, lastUpdate: `dalam ${hours} jam - STRICT`, headlines, clusters: clustered };
+      return { id, title: TOPIC_META[id].title, icon: TOPIC_META[id].icon, volume: `${headlines.length} berita • ${clustered.length} isu`, lastUpdate: `dalam ${hours} jam - ALL IN`, headlines, clusters: clustered };
     }));
 
     return NextResponse.json({ success:true, filter:filterRaw, hours, lastSync:new Date().toISOString(), topics: results }, { status:200 });
