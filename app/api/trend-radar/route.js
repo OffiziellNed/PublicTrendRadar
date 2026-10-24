@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 
-// 11 MENU - TAMBAH SOSIAL & KRIMINAL - AUTO CLUSTERING
+// 11 MENU - FIX SOSIAL & VIRAL (TADI KOSONG) + KRIMINAL OK
 const TOPIC_QUERIES = {
   jakarta: 'Pemprov DKI Jakarta OR Gubernur DKI',
   nasional: 'berita nasional Indonesia',
@@ -12,8 +12,9 @@ const TOPIC_QUERIES = {
   kritik_publik: 'kritik pemerintah OR demo mahasiswa OR unjuk rasa',
   dedi_mulyadi: 'Dedi Mulyadi OR Gubernur Jawa Barat',
   keluarga_jokowi: 'Jokowi OR Gibran Rakabuming OR Keluarga Jokowi',
-  sosial: 'kisah viral OR fenomena sosial OR kehidupan sosial OR kejadian lucu OR cerita unik OR anomali sosial OR tradisi unik OR viral medsos OR curhatan netizen OR kisah inspiratif OR tingkah aneh OR kelakuan unik OR ojek online OR driver ojol OR nenek viral OR kakek viral',
-  kriminal: 'kriminal OR pembunuhan OR penganiayaan OR pengeroyokan OR pembacokan OR penembakan OR KDRT OR kekerasan dalam rumah tangga OR narkoba OR sabu OR ganja OR ekstasi OR pengedaran narkotika OR perampokan OR pencurian OR begal OR curanmor OR penipuan OR pemerkosaan OR pelecehan seksual OR pelecehan OR tawuran OR mutilasi OR mayat ditemukan OR pengrusakan OR penodongan OR pembunuhan sadis OR maling tertangkap',
+  // FIX: query sosial dibikin broad, kata yang sering dipakai media mainstream
+  sosial: 'viral OR kisah inspiratif OR cerita unik OR kejadian lucu OR fenomena unik OR tradisi unik OR video viral OR tiktok viral OR kisah haru OR ojol OR nenek kakek',
+  kriminal: 'kriminal OR pembunuhan OR penganiayaan OR pengeroyokan OR pembacokan OR penembakan OR KDRT OR kekerasan dalam rumah tangga OR narkoba OR sabu OR ganja OR ekstasi OR pengedaran narkotika OR perampokan OR pencurian OR begal OR curanmor OR penipuan OR pemerkosaan OR pelecehan seksual OR tawuran OR mutilasi OR mayat ditemukan OR pengrusakan OR penodongan OR pembunuhan sadis OR maling tertangkap',
 };
 
 const TOPIC_META = {
@@ -91,34 +92,38 @@ function clusterHeadlines(headlines, threshold = 0.38) {
   return clusters.map((cluster, idx) => {
     const main = cluster[0];
     const allSources = [...new Set(cluster.map(c => c.source))];
-    return {
-      id: `cluster-${idx}`,
-      isCluster: cluster.length > 1,
-      count: cluster.length,
-      title: main.title,
-      mainUrl: main.url,
-      time: main.time,
-      minutesAgo: main.minutesAgo,
-      sources: allSources,
-      headlines: cluster,
-    };
+    return { id: `cluster-${idx}`, isCluster: cluster.length > 1, count: cluster.length, title: main.title, mainUrl: main.url, time: main.time, minutesAgo: main.minutesAgo, sources: allSources, headlines: cluster };
   });
+}
+
+async function fetchRSSInternal(q, hours) {
+  const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(q + ` when:${hours}h`)}&hl=id&gl=ID&ceid=ID:id`;
+  const res = await fetch(rssUrl, { headers: { 'User-Agent': 'Mozilla/5.0' }, cache: 'no-store' });
+  if (!res.ok) return [];
+  const xml = await res.text();
+  return parseRSS(xml);
 }
 
 async function fetchRSS(topicId, hours) {
   try {
-    const q = TOPIC_QUERIES[topicId] || topicId;
-    const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(q + ` when:${hours}h`)}&hl=id&gl=ID&ceid=ID:id`;
-    const res = await fetch(rssUrl, { headers: { 'User-Agent': 'Mozilla/5.0' }, cache: 'no-store' });
-    if (!res.ok) return [];
-    const xml = await res.text();
-    const rawItems = parseRSS(xml);
+    let q = TOPIC_QUERIES[topicId] || topicId;
+    let rawItems = await fetchRSSInternal(q, hours);
+
+    // FALLBACK KHUSUS SOSIAL: kalau 1 jam / 6 jam kosong, coba 24 jam + query lebih broad
+    if (rawItems.length === 0 && topicId === 'sosial') {
+      console.log('Sosial kosong di', hours, 'jam, fallback ke 24 jam dengan query broad');
+      rawItems = await fetchRSSInternal('viral OR unik OR lucu OR kisah inspiratif OR fenomena', 24);
+    }
+
     const items = [];
     for (let i = 0; i < rawItems.length; i++) {
       const { titleFull, linkRaw, pubDateStr, source } = rawItems[i];
       const pubDate = new Date(pubDateStr);
       const minutesAgo = isNaN(pubDate.getTime()) ? 9999 : Math.floor((Date.now() - pubDate.getTime()) / 60000);
-      if (minutesAgo > hours * 60 + 120) continue;
+      // untuk sosial fallback, jangan filter by hours ketat
+      if (topicId !== 'sosial' && minutesAgo > hours * 60 + 120) continue;
+      if (topicId === 'sosial' && minutesAgo > 24 * 60 + 120) continue;
+
       const cleanTitle = (titleFull.split(' - ')[0] || titleFull).trim();
       if (!cleanTitle) continue;
       const t = cleanTitle.toLowerCase();
@@ -164,7 +169,7 @@ export async function GET(req) {
         title: TOPIC_META[id].title,
         icon: TOPIC_META[id].icon,
         volume: `${headlines.length} berita • ${clustered.length} isu`,
-        lastUpdate: `dalam ${hours} jam terakhir`,
+        lastUpdate: id === 'sosial' && headlines.length > 0 && hours < 24 && headlines.some(h => h.minutesAgo > hours*60) ? `fallback 24 jam` : `dalam ${hours} jam terakhir`,
         headlines: headlines,
         clusters: clustered,
       };
