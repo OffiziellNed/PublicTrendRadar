@@ -1,110 +1,152 @@
 import { NextResponse } from 'next/server';
+import * as cheerio from 'cheerio';
 
 export const dynamic = 'force-dynamic';
 
-// DATA DENGAN TIMESTAMP - seperti kode lama lo yang pakai minutesAgo
-const BASE_TOPICS = [
-  { id: 'jakarta', title: 'Jakarta', icon: '🏙️', baseVolume: 89 },
-  { id: 'nasional', title: 'Berita Nasional', icon: '📰', baseVolume: 210 },
-  { id: 'bencana', title: 'Bencana Terkini', icon: '🌋', baseVolume: 34, isBencana: true },
-  { id: 'pdip', title: 'PDI Perjuangan', icon: '🐂', baseVolume: 67 },
-  { id: 'megawati', title: 'Megawati Soekarnoputri', icon: '👩‍🦳', baseVolume: 41 },
-  { id: 'puan', title: 'Puan Maharani', icon: '👩‍💼', baseVolume: 28 },
-];
-
-const HEADLINES_DB = {
-  jakarta: [
-    { id:1, source:'DETIK', time:'12m lalu', minutesAgo:12, sentiment:'neg', title:'Banjir Rob Pluit, Pompa Ancol Tak Berfungsi Maksimal', summary:'Ketinggian air 60cm di Muara Angke.', url:'https://news.detik.com/jakarta/banjir-rob-pluit', tags:['#Banjir'] },
-    { id:2, source:'KOMPAS', time:'45m lalu', minutesAgo:45, sentiment:'neu', title:'Demo Ojol di Balai Kota Tuntut Aturan Tarif Baru', summary:'Ratusan driver ojol aksi.', url:'https://megapolitan.kompas.com/read/2024/demo-ojol', tags:['#Ojol'] },
-    { id:3, source:'TEMPO', time:'3j lalu', minutesAgo:180, sentiment:'neg', title:'Kebijakan PSN Jakarta Utara Disoal Warga', summary:'Warga Marunda protes.', url:'https://tempo.co/jakarta/psn', tags:['#PSN'] },
-    { id:4, source:'CNN', time:'8j lalu', minutesAgo:480, sentiment:'neg', title:'Macet Parah Sudirman - Thamrin Akibat Proyek MRT', summary:'Antrean kendaraan mengular.', url:'https://cnnindonesia.com/jakarta/macet-sudirman', tags:['#Macet'] },
-    { id:5, source:'KOMPAS', time:'20j lalu', minutesAgo:1200, sentiment:'neu', title:'DKI Resmikan Taman Baru di Tebet', summary:'Taman seluas 2 hektar.', url:'https://megapolitan.kompas.com/taman-tebet', tags:['#Taman'] },
-  ],
-  nasional: [
-    { id:1, source:'CNN', time:'20m lalu', minutesAgo:20, sentiment:'neu', title:'APBN 2025 Fokus ke Makan Bergizi Gratis dan IKN', summary:'Menkeu paparkan alokasi.', url:'https://cnnindonesia.com/nasional/apbn-2025', tags:['#APBN'] },
-    { id:2, source:'KOMPAS', time:'5j lalu', minutesAgo:300, sentiment:'neu', title:'KPU Siapkan Tahapan Pilkada Serentak', summary:'Jadwal logistik disiapkan.', url:'https://nasional.kompas.com/pilkada', tags:['#Pilkada'] },
-    { id:3, source:'TEMPO', time:'18j lalu', minutesAgo:1080, sentiment:'neu', title:'Presiden Resmikan Tol Baru di Jawa Tengah', summary:'Tol sepanjang 40km.', url:'https://tempo.co/nasional/tol-baru', tags:['#Tol'] },
-  ],
-  bencana: [
-    { id:1, source:'BMKG', time:'3m lalu', minutesAgo:3, sentiment:'neg', title:'Gempa M 5.2 Halmahera, Kedalaman 10km - Tidak Berpotensi Tsunami', summary:'Dirasakan hingga Ternate.', url:'https://www.bmkg.go.id/gempabumi/gempabumi-dirasakan.bmkg', tags:['#Gempa'], isBMKG:true },
-    { id:2, source:'BNPB', time:'25m lalu', minutesAgo:25, sentiment:'neg', title:'BNPB: Banjir Bandang di Wamena, 2 Warga Hilang', summary:'Hujan deras picu banjir.', url:'https://bnpb.go.id/berita/banjir-wamena', tags:['#BanjirBandang'] },
-    { id:3, source:'BMKG', time:'2j lalu', minutesAgo:120, sentiment:'neu', title:'Peringatan Cuaca Ekstrem Jawa-Bali 24 Jam', summary:'Potensi hujan lebat.', url:'https://www.bmkg.go.id/cuaca/cuaca-ekstrem', tags:['#CuacaEkstrem'] },
-    { id:4, source:'BASARNAS', time:'10j lalu', minutesAgo:600, sentiment:'neg', title:'Longsor di Puncak Bogor, Jalur Tertutup', summary:'Evakuasi masih berlangsung.', url:'https://basarnas.go.id/longsor-puncak', tags:['#Longsor'] },
-  ],
-  pdip: [
-    { id:1, source:'TEMPO', time:'20m lalu', minutesAgo:20, sentiment:'neg', title:'Isu Konflik Internal PDIP Menguat Jelang Rakernas', summary:'Sumber internal sebut perbedaan sikap.', url:'https://tempo.co/politik/konflik-pdip', tags:['#PDIP'] },
-    { id:2, source:'DETIK', time:'55m lalu', minutesAgo:55, sentiment:'neg', title:'Hasto Tanggapi Isu Perpecahan: Solid!', summary:'Sekjen bantah pecah.', url:'https://news.detik.com/politik/hasto-solid', tags:['#Hasto'] },
-    { id:3, source:'KOMPAS', time:'7j lalu', minutesAgo:420, sentiment:'neg', title:'PDIP Evaluasi Kinerja Legislator di Daerah', summary:'Evaluasi jelang 2029.', url:'https://nasional.kompas.com/pdip-evaluasi', tags:['#PDIP'] },
-  ],
-  megawati: [
-    { id:1, source:'KOMPAS', time:'40m lalu', minutesAgo:40, sentiment:'neu', title:'Pidato Megawati Soekarnoputri di Rakernas: Ingatkan Kader Jangan Lupa Akar Rumput', summary:'Megawati tekankan ideologi.', url:'https://nasional.kompas.com/megawati-rakernas', tags:['#Megawati'] },
-    { id:2, source:'CNN', time:'6j lalu', minutesAgo:360, sentiment:'neu', title:'Megawati Soekarnoputri Bertemu Relawan di Jakarta', summary:'Pertemuan tertutup.', url:'https://cnnindonesia.com/megawati-relawan', tags:['#Megawati'] },
-    { id:3, source:'TEMPO', time:'22j lalu', minutesAgo:1320, sentiment:'neu', title:'Megawati Soekarnoputri Hadiri Haul Bung Karno di Blitar', summary:'Ziarah ke makam.', url:'https://tempo.co/megawati-haul', tags:['#Megawati'] },
-  ],
-  puan: [
-    { id:1, source:'DPR RI', time:'2j lalu', minutesAgo:120, sentiment:'pos', title:'Puan Maharani Pimpin Sidang Paripurna, Sahkan 3 RUU', summary:'Sidang kondusif.', url:'https://www.dpr.go.id/berita/puan-sahkan-ruu', tags:['#DPR'], hasYT:true },
-    { id:2, source:'DETIK', time:'9j lalu', minutesAgo:540, sentiment:'pos', title:'Puan Maharani Tinjau Program Makan Gratis di Solo', summary:'Tinjau dapur umum.', url:'https://news.detik.com/puan-makan-gratis', tags:['#Puan'] },
-  ],
+// V5 ANTI 522 + GOOGLE NEWS RESOLVER - COPY DARI PORTAL LAMA YANG UDAH JALAN
+const isErrorPage = (text) => {
+  if (!text) return true;
+  const low = text.toLowerCase();
+  return low.includes('cloudflare') || low.includes('just a moment') || low.includes('error 522') || low.includes('error 1020') || low.includes('attention required') || low.includes('ddos protection');
 };
 
-async function fetchBMKG() {
+async function resolveGoogleNewsUrl(googleUrl) {
   try {
-    const res = await fetch('https://data.bmkg.go.id/DataMKG/TEWS/autogempa.json', { next: { revalidate: 60 } });
-    if (!res.ok) return null;
-    const json = await res.json();
-    const info = json?.Infogempa?.gempa;
-    if (!info) return null;
-    return {
-      id: 999, source: 'BMKG', time: 'Baru saja', minutesAgo: 2, sentiment: 'neg',
-      title: `Gempa M ${info.Magnitude} ${info.Wilayah} - ${info.Potensi}`,
-      summary: `${info.Kedalaman} • ${info.Jam} WIB`,
-      url: 'https://www.bmkg.go.id/gempabumi/gempabumi-dirasakan.bmkg',
-      tags: ['#Gempa'], isBMKG: true,
-    };
-  } catch { return null; }
+    if (!googleUrl.includes('news.google.com')) return googleUrl;
+    // Google News CBM link biasanya redirect 2x
+    const res = await fetch(googleUrl, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36' },
+      redirect: 'follow',
+    });
+    if (res.url && !res.url.includes('news.google.com')) {
+      return res.url;
+    }
+    // Fallback parse HTML
+    const html = await res.text();
+    const $ = cheerio.load(html);
+    const metaRefresh = $('meta[http-equiv="refresh"]').attr('content');
+    if (metaRefresh) {
+      const m = metaRefresh.match(/url='([^']+)'/i) || metaRefresh.match(/url="([^"]+)"/i);
+      if (m) return m[1];
+    }
+    const firstLink = $('a').first().attr('href');
+    if (firstLink && firstLink.startsWith('http')) return firstLink;
+    return googleUrl;
+  } catch {
+    return googleUrl;
+  }
 }
 
-export async function GET(req) {
-  const { searchParams } = new URL(req.url);
-  const filter = searchParams.get('filter') || '1 Jam';
+async function tryFetchDirect(url) {
+  const res = await fetch(url, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'Accept-Language': 'id,en-US;q=0.9,en;q=0.8',
+      'Referer': 'https://www.google.com/',
+    },
+    next: { revalidate: 0 },
+  });
+  if (!res.ok) throw new Error(`Direct fail ${res.status}`);
+  const html = await res.text();
+  if (isErrorPage(html)) throw new Error('Cloudflare 522 detected on direct');
+  return html;
+}
 
-  let maxMinutes = 99999;
-  if (filter === '1 Jam') maxMinutes = 60;
-  else if (filter === '6 Jam') maxMinutes = 360;
-  else if (filter === '24 Jam') maxMinutes = 1440;
+async function tryFetchProxies(url) {
+  const proxies = [
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+    `https://corsproxy.io/?${encodeURIComponent(url)}`,
+    `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+    `https://cc.bingj.com/cache.aspx?d=465&m=1&w=7&u=${encodeURIComponent(url)}`,
+  ];
+  for (const pUrl of proxies) {
+    try {
+      const res = await fetch(pUrl, {
+        headers: { 'User-Agent': 'Mozilla/5.0' },
+        next: { revalidate: 0 },
+      });
+      if (!res.ok) continue;
+      const html = await res.text();
+      if (isErrorPage(html)) continue;
+      if (html.length < 1000) continue;
+      return html;
+    } catch { continue; }
+  }
+  throw new Error('All proxies failed');
+}
 
-  const bmkgLive = await fetchBMKG();
+export async function POST(req) {
+  try {
+    const { url } = await req.json();
+    if (!url) return NextResponse.json({ status: 'error', error: 'URL kosong' }, { status: 400 });
 
-  const topics = BASE_TOPICS.map(t => {
-    let headlines = [...(HEADLINES_DB[t.id] || [])];
-    if (t.id === 'bencana' && bmkgLive) {
-      headlines = [bmkgLive, ...headlines.filter(h => !h.isBMKG)];
+    let realUrl = url;
+    // 1. Resolve Google News dulu (logic lama lo)
+    if (url.includes('news.google.com')) {
+      realUrl = await resolveGoogleNewsUrl(url);
     }
-    // FILTER SEPERTI KODE LAMA: berdasarkan minutesAgo
-    const filtered = headlines.filter(h => h.minutesAgo <= maxMinutes);
-    // Jika filter 1 jam tapi nggak ada berita, tetap tampilkan kosong biar user tau (bukan fallback)
-    
-    return {
-      id: t.id,
-      title: t.title,
-      icon: t.icon,
-      volume: `${filtered.length} berita`,
-      velocity: t.isBencana ? `+${150 + Math.floor(Math.random()*80)}%` : `+${Math.floor(Math.random()*60)+5}%`,
-      sentiment: t.id === 'pdip' ? 'Negatif 72%' : t.id === 'bencana' ? 'Negatif' : t.id === 'puan' ? 'Positif 54%' : 'Campur',
-      sentimentColor: t.id === 'bencana' || t.id === 'pdip' ? '#ef4444' : t.id === 'puan' ? '#22c55e' : '#eab308',
-      hot: t.id === 'bencana' || t.id === 'pdip' || filtered.length >= 2,
-      lastUpdate: filter === '1 Jam' ? 'dalam 1 jam terakhir' : filter === '6 Jam' ? 'dalam 6 jam terakhir' : filter === '24 Jam' ? 'dalam 24 jam terakhir' : 'semua waktu',
-      headlines: filtered,
-      hooks: [`${t.title}: Sisi yang Tidak Diceritakan Media`, `Hook Investigatif ${t.title}`, `Hook Human Interest ${t.title}`],
-      keywords: [{k:'#'+t.title.split(' ')[0], v:`↑${Math.floor(Math.random()*200)+10}%`}],
-    };
-  });
 
-  return NextResponse.json({
-    status: 'success',
-    filter,
-    maxMinutes,
-    lastSync: new Date().toISOString(),
-    topics,
-  });
+    let html = '';
+    try {
+      html = await tryFetchDirect(realUrl);
+    } catch (e) {
+      console.log('Direct fail, coba proxy:', e.message);
+      html = await tryFetchProxies(realUrl);
+    }
+
+    const $ = cheerio.load(html);
+    $('script, style, noscript, iframe, header, footer, nav').remove();
+
+    const title = $('meta[property="og:title"]').attr('content') || $('title').text() || $('h1').first().text() || 'Tanpa Judul';
+    const ogImage = $('meta[property="og:image"]').attr('content') || $('article img').first().attr('src') || $('img').first().attr('src') || '';
+    let imageUrl = ogImage;
+    if (imageUrl && !imageUrl.startsWith('http')) {
+      try { imageUrl = new URL(imageUrl, realUrl).href; } catch {}
+    }
+
+    // Ambil paragraf seperti portal lama
+    let paragraphs = [];
+    $('article p, .content p, .detail p, .read__content p, #content p, p').each((i, el) => {
+      const t = $(el).text().trim();
+      if (t.length > 60 && !isErrorPage(t)) paragraphs.push(t);
+    });
+    paragraphs = paragraphs.slice(0, 10);
+    const fullText = paragraphs.join('\n\n');
+
+    let hostname = '';
+    try { hostname = new URL(realUrl).hostname.replace('www.', ''); } catch {}
+
+    if (!fullText || fullText.length < 100) {
+      return NextResponse.json({
+        status: 'success',
+        title: title.trim(),
+        description: `Isi berita dari ${hostname} tidak bisa diambil full karena proteksi Cloudflare. Silakan pakai deskripsi RSS.`,
+        text: `Isi berita dari ${hostname} tidak bisa diambil full karena proteksi. Judul: ${title}`,
+        sumber: `Sumber Berita: ${hostname}`,
+        real_url: realUrl,
+        gambar_url: imageUrl,
+        prompt: `${title}\n\nSumber: ${hostname}\nLink: ${realUrl}`,
+        raw_length: 0,
+      });
+    }
+
+    const prompt = `${fullText}\n\n---\nSumber: ${hostname}\nLink: ${realUrl}`;
+
+    return NextResponse.json({
+      status: 'success',
+      title: title.trim(),
+      description: fullText.slice(0, 5000),
+      text: fullText.slice(0, 8000),
+      sumber: `Sumber Berita: ${hostname}`,
+      real_url: realUrl,
+      gambar_url: imageUrl,
+      prompt: prompt.slice(0, 8000),
+      raw_length: fullText.length,
+    });
+
+  } catch (err) {
+    console.error('tarik-berita error', err);
+    return NextResponse.json({ status: 'error', error: err.message, message: err.message }, { status: 500 });
+  }
 }
