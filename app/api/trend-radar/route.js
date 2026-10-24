@@ -117,3 +117,4 @@ export async function GET(req) {
     return NextResponse.json({ success: false, error: String(e), topics: [] }, { status: 200 });
   }
 }
+
