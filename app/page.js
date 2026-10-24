@@ -43,6 +43,7 @@ export default function AgoraVadaPortal() {
     { id: 'kritik_publik', title: 'Kritik Publik', icon: '📢', volume: '0 berita', lastUpdate: '-', headlines: [] },
     { id: 'dedi_mulyadi', title: 'Dedi Mulyadi / KDM', icon: '🌾', volume: '0 berita', lastUpdate: '-', headlines: [] },
     { id: 'keluarga_jokowi', title: 'Keluarga Jokowi', icon: '👨‍👩‍👧‍👦', volume: '0 berita', lastUpdate: '-', headlines: [] },
+    { id: 'homeless_media', title: 'Homeless Media', icon: '🏴‍☠️', volume: '0 berita', lastUpdate: '-', headlines: [] },
   ]);
 
   useEffect(() => {
@@ -63,8 +64,7 @@ export default function AgoraVadaPortal() {
         const res = await fetch(`/api/trend-radar?filter=${encodeURIComponent(trendTimeFilter)}`, { cache: 'no-store' });
         const data = await res.json();
         if (data?.topics?.length) {
-          // URUTAN TETAP SESUAI REQUEST
-          const order = ['jakarta','nasional','bencana','pdip','megawati','puan','kritik_publik','dedi_mulyadi','keluarga_jokowi'];
+          const order = ['jakarta','nasional','bencana','pdip','megawati','puan','kritik_publik','dedi_mulyadi','keluarga_jokowi','homeless_media'];
           const sortedData = [...data.topics].sort((a,b) => order.indexOf(a.id) - order.indexOf(b.id));
           const sortedTopics = sortedData.map(t => ({
             ...t,
@@ -142,32 +142,7 @@ export default function AgoraVadaPortal() {
     const c = canvasRef.current; if (!c) return;
     const ctx = c.getContext('2d'); if (ctx) renderCanvas(ctx, c, true);
   }, [currentPage, loadedBgImg, templateImgObj, imgX, imgY, imgScale, teksX, teksY, ukuranFont, jarakBaris, sumberX, sumberY, ukuranFontSumber, judulHtml, sumberBerita]);
-  const handleMouseDown = (e) => { setIsDragging(true); const cx = e.clientX || e.touches?.[0]?.clientX; const cy = e.clientY || e.touches?.[0]?.clientY; setDragStart({ x: cx - imgX, y: cy - imgY }); };
-  const handleMouseMove = (e) => { if (!isDragging) return; const cx = e.clientX || e.touches?.[0]?.clientX; const cy = e.clientY || e.touches?.[0]?.clientY; setImgX(cx - dragStart.x); setImgY(cy - dragStart.y); };
-  const handleMouseUp = () => setIsDragging(false);
-  const handleWheel = (e) => { e.preventDefault(); const zi = 0.05; if (e.deltaY < 0) setImgScale(p => Math.min(p + zi, 5)); else setImgScale(p => Math.max(p - zi, 0.1)); };
-  const downloadGambar = () => { const c = canvasRef.current; if (!c) return; const ctx = c.getContext('2d'); if (!ctx) return; renderCanvas(ctx, c, false); const a = document.createElement('a'); a.download = 'AgoraVada_Post.jpg'; a.href = c.toDataURL("image/jpeg", 0.95); a.click(); setTimeout(() => { const cc = canvasRef.current; if (cc) { const cctx = cc.getContext('2d'); if (cctx) renderCanvas(cctx, cc, true); } }, 100); };
-  const handleTapUploadButton = () => {
-    const c = canvasRef.current; if (!c) return; const ctx = c.getContext('2d'); if (!ctx) return;
-    renderCanvas(ctx, c, false);
-    c.toBlob(blob => {
-      if (!blob) return; const url = URL.createObjectURL(blob); setReviewImageBlob(blob); setReviewImageUrl(url);
-      const tmp = document.createElement('div'); tmp.innerHTML = judulHtml || ''; let cap = (tmp.textContent || '').trim();
-      if (sumberBerita) cap += `\n\n${sumberBerita}`; if (!cap.includes('#AgoraVada')) cap += `\n\n#AgoraVada #BeritaTerkini #Info`;
-      setCaptionText(cap.trim()); setCurrentPage(4);
-    }, 'image/jpeg', 0.92);
-  };
-  const handlePublish = async () => {
-    if (!reviewImageBlob) return alert('Gambar belum siap'); setIsUploading(true);
-    try {
-      const fd = new FormData(); fd.append('file', reviewImageBlob);
-      const upRes = await fetch('/api/instagram/upload-image', { method: 'POST', body: fd });
-      const upData = await upRes.json(); if (!upRes.ok) throw new Error(upData.error);
-      const pubRes = await fetch('/api/instagram/publish', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ imageUrls: [upData.url], caption: captionText }) });
-      const pubData = await pubRes.json(); if (!pubRes.ok) throw new Error(pubData.error);
-      alert('Berhasil publish IG!'); setCurrentPage(3);
-    } catch (err) { alert('Gagal: ' + err.message); } finally { setIsUploading(false); }
-  };
+
   const openDetail = (topic) => { 
     const sorted = [...(topic.headlines||[])].sort((a,b)=> (a.minutesAgo||9999)-(b.minutesAgo||9999)).slice(0,200);
     setSelectedTopic({...topic, headlines: sorted}); 
@@ -192,7 +167,6 @@ export default function AgoraVadaPortal() {
         @import url("https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap");
       `}</style>
       <div style={{ width: '100%', maxWidth: currentPage === 0 ? '1280px' : '950px', margin: '0 auto', padding: '20px', backgroundColor: '#0a0a0f', minHeight: '100vh' }}>
-        {currentPage !== 0 && (<div style={{ textAlign: 'center', marginBottom: '20px' }}><h1 style={{ fontSize: '20px', fontWeight: '800' }}>⚡ AGORA VADA</h1></div>)}
         {currentPage === 0 && (
           <div style={{ backgroundColor: '#0a0a0f' }}>
             <div style={{ textAlign: 'center', marginBottom: '32px' }}>
@@ -205,17 +179,28 @@ export default function AgoraVadaPortal() {
                 <div style={{ padding: '6px 14px', borderRadius: '20px', fontSize: '11px', backgroundColor: '#161b22', border: '1px solid #30363d', color: '#22c55e' }} className="mono">● LIVE {trendLoading ? 'sync...' : 'ON'}</div>
               </div>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(320px,1fr))', gap: '16px', backgroundColor: '#0a0a0f', alignItems: 'stretch' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', backgroundColor: '#0a0a0f', alignItems: 'stretch' }}>
               {trendTopics.map(topic => {
                 const sortedPreview = [...(topic.headlines||[])].sort((a,b)=> (a.minutesAgo||9999)-(b.minutesAgo||9999));
+                const isHomeless = topic.id === 'homeless_media';
                 return (
-                  <div key={topic.id} style={{ backgroundColor: '#161b22', border: '1px solid #30363d', borderRadius: '16px', padding: '18px', display: 'flex', flexDirection: 'column', minHeight: '210px' }}>
+                  <div key={topic.id} style={{ 
+                    backgroundColor: '#161b22', 
+                    border: `1px solid ${isHomeless ? '#f97316' : '#30363d'}`, 
+                    borderRadius: '16px', 
+                    padding: '18px', 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    minHeight: '210px',
+                    gridColumn: isHomeless ? '2 / span 1' : 'auto'
+                  }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
                       <div style={{ width: '48px', height: '48px', backgroundColor: '#0d1117', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', border: '1px solid #30363d' }}>{topic.icon}</div>
                       <div><div style={{ fontWeight: '700', fontSize: '15px' }}>{topic.title}</div><div className="mono" style={{ fontSize: '11px', color: '#8b949e' }}>{topic.volume} • {topic.lastUpdate}</div></div>
                     </div>
                     <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
                       <div className="mono" style={{ fontSize: '11px', backgroundColor: '#0d1117', border: '1px solid #30363d', padding: '4px 8px', borderRadius: '6px', color: '#c9d1d9' }}>{topic.volume}</div>
+                      {isHomeless && <div className="mono" style={{ fontSize: '10px', backgroundColor: '#f97316', color: '#000', padding: '4px 8px', borderRadius: '6px', fontWeight:'700' }}>IG SCRAPE</div>}
                     </div>
                     <div style={{ marginBottom: '14px', minHeight: '44px', flex: 1 }}>
                       {sortedPreview.length > 0 ? sortedPreview.slice(0, 2).map(h => (
