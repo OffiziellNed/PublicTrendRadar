@@ -49,10 +49,7 @@ export default function AgoraVadaPortal() {
   }, []);
   useEffect(() => {
     if (!imageUrl) { setLoadedBgImg(null); return; }
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => setLoadedBgImg(img);
-    img.src = imageUrl;
+    const img = new Image(); img.crossOrigin = 'anonymous'; img.onload = () => setLoadedBgImg(img); img.src = imageUrl;
   }, [imageUrl]);
 
   useEffect(() => {
@@ -68,10 +65,14 @@ export default function AgoraVadaPortal() {
         if (data?.topics?.length) {
           let sortedTopics = data.topics.map(t => ({
             ...t,
-            headlines: [...(t.headlines || [])].sort((a,b) => (a.minutesAgo||9999) - (b.minutesAgo||9999)).slice(0,200)
+            headlines: [...(t.headlines || [])].sort((a,b) => {
+              if (isTop) {
+                if (b.clusterScore !== a.clusterScore) return b.clusterScore - a.clusterScore;
+                return a.minutesAgo - b.minutesAgo;
+              }
+              return a.minutesAgo - b.minutesAgo;
+            }).slice(0,200)
           }));
-          // JANGAN PINDAH POSISI BOARD PAS TOP NEWS - BIAR TETAP URUTAN ASLI
-          // sortedTopics.sort() dihapus
           setTrendTopics(sortedTopics);
         }
       } catch (e) {}
@@ -171,7 +172,12 @@ export default function AgoraVadaPortal() {
     } catch (err) { alert('Gagal: ' + err.message); } finally { setIsUploading(false); }
   };
   const openDetail = (topic) => { 
-    const sorted = [...(topic.headlines||[])].sort((a,b)=> (a.minutesAgo||9999)-(b.minutesAgo||9999)).slice(0,200);
+    const sorted = [...(topic.headlines||[])].sort((a,b)=> {
+      if (trendTimeFilter.includes('Top')) {
+        if (b.clusterScore !== a.clusterScore) return b.clusterScore - a.clusterScore;
+      }
+      return a.minutesAgo - b.minutesAgo;
+    }).slice(0,200);
     setSelectedTopic({...topic, headlines: sorted}); 
     setShowDetail(true); 
     setSelectedHeadline(null); 
@@ -181,6 +187,7 @@ export default function AgoraVadaPortal() {
     setUrlBerita(selectedHeadline.url); setSumberBerita(selectedHeadline.source);
     setCurrentPage(1); setShowDetail(false);
   };
+
   return (
     <div style={{ width: '100%', minHeight: '100vh', backgroundColor: '#0a0a0f', color: '#fff' }}>
       <style>{`
@@ -198,47 +205,53 @@ export default function AgoraVadaPortal() {
           <div style={{ backgroundColor: '#0a0a0f' }}>
             <div style={{ textAlign: 'center', marginBottom: '32px' }}>
               <h2 style={{ fontSize: '32px', fontWeight: '800' }}>Public Trend Radar</h2>
-              <p style={{ color: '#8b949e', fontSize: '14px', marginTop: '6px' }}>Monitoring isu publik terupdate.</p>
+              <p style={{ color: '#8b949e', fontSize: '14px', marginTop: '6px' }}>Monitoring isu publik terupdate • Skor Top News: Tier1=3, Tier2=2, Tier3=1, ≥25 poin = Top</p>
               <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'center', gap: '8px', flexWrap: 'wrap' }}>
                 {['1 Jam', '6 Jam', '24 Jam'].map(f => (
                   <button key={f} onClick={() => setTrendTimeFilter(f)} style={{ padding: '6px 14px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', border: '1px solid #30363d', backgroundColor: trendTimeFilter === f ? '#fff' : '#161b22', color: trendTimeFilter === f ? '#000' : '#c9d1d9', cursor: 'pointer' }}>{f}</button>
                 ))}
-                <button onClick={() => setTrendTimeFilter('🔥 Top News')} style={{ padding: '6px 14px', borderRadius: '20px', fontSize: '12px', fontWeight: '700', border: '1px solid #f85149', backgroundColor: trendTimeFilter.includes('Top') ? '#f85149' : '#161b22', color: trendTimeFilter.includes('Top') ? '#fff' : '#f85149', cursor: 'pointer' }}>🔥 Top News</button>
+                <button onClick={() => setTrendTimeFilter('🔥 Top News')} style={{ padding: '6px 14px', borderRadius: '20px', fontSize: '12px', fontWeight: '700', border: '1px solid #f85149', backgroundColor: trendTimeFilter.includes('Top') ? '#f85149' : '#161b22', color: trendTimeFilter.includes('Top') ? '#fff' : '#f85149', cursor: 'pointer' }}>🔥 Top News (≥25 poin)</button>
                 <div style={{ padding: '6px 14px', borderRadius: '20px', fontSize: '11px', backgroundColor: '#161b22', border: '1px solid #30363d', color: '#22c55e' }} className="mono">● LIVE {trendLoading ? 'sync...' : 'ON'}</div>
               </div>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(320px,1fr))', gap: '16px', backgroundColor: '#0a0a0f' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(340px,1fr))', gap: '16px', backgroundColor: '#0a0a0f' }}>
               {trendTopics.map(topic => {
-                const sortedPreview = [...(topic.headlines||[])].sort((a,b)=> (a.minutesAgo||9999)-(b.minutesAgo||9999));
+                const sortedPreview = [...(topic.headlines||[])].sort((a,b)=> a.minutesAgo - b.minutesAgo);
+                const topPreview = sortedPreview.filter(h=>h.isTopNews).slice(0,2);
+                const displayPreview = trendTimeFilter.includes('Top') ? topPreview : sortedPreview.slice(0,2);
                 return (
-                  <div key={topic.id} style={{ backgroundColor: '#161b22', border: '1px solid #30363d', borderRadius: '16px', padding: '18px' }}>
+                  <div key={topic.id} style={{ backgroundColor: '#161b22', border: `1px solid ${trendTimeFilter.includes('Top') && topic.topCount>0 ? '#f85149' : '#30363d'}`, borderRadius: '16px', padding: '18px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
                       <div style={{ width: '48px', height: '48px', backgroundColor: '#0d1117', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', border: '1px solid #30363d' }}>{topic.icon}</div>
                       <div><div style={{ fontWeight: '700', fontSize: '15px' }}>{topic.title}</div><div className="mono" style={{ fontSize: '11px', color: '#8b949e' }}>{topic.volume} • {topic.lastUpdate}</div></div>
                     </div>
-                    <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
-                      <div className="mono" style={{ fontSize: '11px', backgroundColor: '#0d1117', border: '1px solid #30363d', padding: '4px 8px', borderRadius: '6px' }}>{topic.volume}</div>
-                      <div className="mono" style={{ fontSize: '11px', backgroundColor: '#0d1117', border: '1px solid #30363d', padding: '4px 8px', borderRadius: '6px' }}>{topic.velocity} 🔥</div>
+                    <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', flexWrap:'wrap' }}>
+                      <div className="mono" style={{ fontSize: '11px', backgroundColor: topic.topCount>0 ? '#f8514920' : '#0d1117', border: `1px solid ${topic.topCount>0 ? '#f85149' : '#30363d'}`, padding: '4px 8px', borderRadius: '6px', color: topic.topCount>0 ? '#f85149' : '#c9d1d9' }}>{topic.topCount} Top News</div>
+                      <div className="mono" style={{ fontSize: '11px', backgroundColor: '#0d1117', border: '1px solid #30363d', padding: '4px 8px', borderRadius: '6px', color: '#c9d1d9' }}>{topic.volume}</div>
                       <div style={{ fontSize: '11px', backgroundColor: '#0d1117', border: '1px solid #30363d', padding: '4px 8px', borderRadius: '6px', color: topic.sentimentColor }}>{topic.sentiment}</div>
                     </div>
-                    <div style={{ marginBottom: '14px' }}>
-                      {sortedPreview.slice(0, 2).map(h => (
-                        <div key={h.id} style={{ fontSize: '12px', color: '#8b949e', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: '4px' }}>• {h.title} <span className="mono" style={{fontSize:'10px', color:'#58a6ff'}}>({h.time})</span></div>
-                      ))}
+                    <div style={{ marginBottom: '14px', minHeight:'36px' }}>
+                      {displayPreview.length>0 ? displayPreview.map(h => (
+                        <div key={h.id} style={{ fontSize: '12px', color: h.isTopNews ? '#fff' : '#8b949e', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: '4px', fontWeight: h.isTopNews ? '600' : '400' }}>
+                          {h.isTopNews ? '🔥 ' : '• '}{h.title} <span className="mono" style={{fontSize:'10px', color: h.isTopNews ? '#f85149' : '#58a6ff'}}>({h.clusterScore}poin • {h.time})</span>
+                        </div>
+                      )) : <div style={{fontSize:'11px', color:'#6e7681'}}>Tidak ada Top News (skor &lt;25) di {trendTimeFilter}</div>}
                     </div>
-                    <button onClick={() => openDetail(topic)} style={{ width: '100%', backgroundColor: '#fff', color: '#000', padding: '10px', borderRadius: '10px', fontWeight: '700', fontSize: '12px', border: 'none', cursor: 'pointer' }}>Cek Sekarang</button>
+                    <button onClick={() => openDetail(topic)} style={{ width: '100%', backgroundColor: trendTimeFilter.includes('Top') ? '#f85149' : '#fff', color: trendTimeFilter.includes('Top') ? '#fff' : '#000', padding: '10px', borderRadius: '10px', fontWeight: '700', fontSize: '12px', border: 'none', cursor: 'pointer' }}>
+                      {trendTimeFilter.includes('Top') ? `Lihat ${topic.topCount} Top News` : 'Cek Sekarang'}
+                    </button>
                   </div>
                 );
               })}
             </div>
             {showDetail && selectedTopic && (
               <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(10,10,15,0.92)', zIndex: 50, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', padding: '20px', overflowY: 'auto' }}>
-                <div style={{ width: '100%', maxWidth: '720px', backgroundColor: '#0d1117', border: '1px solid #30363d', borderRadius: '16px', maxHeight: '85vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                <div style={{ width: '100%', maxWidth: '760px', backgroundColor: '#0d1117', border: '1px solid #30363d', borderRadius: '16px', maxHeight: '85vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                   <div style={{ padding: '16px 20px', borderBottom: '1px solid #30363d', display: 'flex', justifyContent: 'space-between', flexShrink: 0, backgroundColor: '#0d1117' }}>
-                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap:'wrap' }}>
                       <button onClick={() => setShowDetail(false)} style={{ backgroundColor: '#21262d', border: '1px solid #30363d', color: '#fff', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' }}>← Kembali</button>
                       <div style={{ fontWeight: '800' }}>{selectedTopic.icon} {selectedTopic.title}</div>
-                      <div className="mono" style={{ fontSize: '11px', color: '#8b949e' }}>{trendTimeFilter} • {selectedTopic.headlines.length} berita</div>
+                      <div className="mono" style={{ fontSize: '11px', color: '#8b949e' }}>{trendTimeFilter} • {selectedTopic.headlines.length} berita • {selectedTopic.topCount} Top (≥25 poin)</div>
                     </div>
                     <button onClick={() => setShowDetail(false)} style={{ background: 'none', border: 'none', color: '#8b949e', fontSize: '20px', cursor: 'pointer' }}>×</button>
                   </div>
@@ -247,21 +260,29 @@ export default function AgoraVadaPortal() {
                       {selectedTopic.headlines.map(h => {
                         const isSelected = selectedHeadline && selectedHeadline.id === h.id;
                         return (
-                          <div key={h.id} onClick={() => setSelectedHeadline(h)} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px', borderRadius: '10px', backgroundColor: isSelected ? '#1f6feb20' : '#161b22', border: `1px solid ${isSelected ? '#1f6feb' : '#30363d'}`, cursor: 'pointer' }}>
-                            <input type="radio" name="singleHeadline" checked={isSelected} readOnly style={{ accentColor: '#1f6feb' }} />
+                          <div key={h.id} onClick={() => setSelectedHeadline(h)} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px', borderRadius: '10px', backgroundColor: isSelected ? '#1f6feb20' : h.isTopNews ? '#f8514915' : '#161b22', border: `1px solid ${isSelected ? '#1f6feb' : h.isTopNews ? '#f85149' : '#30363d'}`, cursor: 'pointer' }}>
+                            <input type="radio" name="singleHeadline" checked={isSelected} readOnly style={{ accentColor: h.isTopNews ? '#f85149' : '#1f6feb' }} />
                             <div style={{ flex: 1 }}>
-                              <div style={{ fontSize: '10px', display:'flex', gap:'8px' }} className="mono"><span style={{color:'#58a6ff'}}>{h.time}</span><span style={{color:'#8b949e'}}>{h.source}</span></div>
-                              <div style={{ fontWeight: '600', fontSize: '13px', marginTop: '4px' }}>{h.title}</div>
+                              <div style={{ fontSize: '10px', display:'flex', gap:'8px', flexWrap:'wrap' }} className="mono">
+                                <span style={{color: h.isTopNews ? '#f85149' : '#58a6ff', fontWeight:'700'}}>{h.isTopNews ? `🔥 ${h.clusterScore} POIN TOP` : `${h.clusterScore} poin`}</span>
+                                <span style={{color:'#8b949e'}}>{h.tierLabel}</span>
+                                <span style={{color:'#8b949e'}}>{h.time}</span>
+                                <span style={{color:'#8b949e'}}>{h.source}</span>
+                                <span style={{color: h.minutesAgo < 30 ? '#22c55e' : '#6e7681'}}>{h.clusterSize} media</span>
+                              </div>
+                              <div style={{ fontWeight: h.isTopNews ? '700' : '600', fontSize: '13px', marginTop: '4px', color: h.isTopNews ? '#fff' : '#c9d1d9' }}>{h.title}</div>
+                              <div style={{ fontSize: '11px', color: '#8b949e', marginTop: '2px' }}>{h.summary}</div>
                             </div>
                             <a href={h.url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ width: '36px', height: '36px', backgroundColor: '#0d1117', border: '1px solid #30363d', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', fontSize: '16px', cursor: 'pointer', flexShrink:0 }}>🔗</a>
                           </div>
                         );
                       })}
+                      {selectedTopic.headlines.length===0 && <div style={{padding:'30px', textAlign:'center', color:'#8b949e', fontSize:'13px'}}>Tidak ada berita yang skornya ≥25 poin di filter ini.<br/>Coba ganti ke 24 Jam atau tunggu berita rame.</div>}
                     </div>
                   </div>
                   <div style={{ padding: '12px 16px', borderTop: '1px solid #30363d', backgroundColor: '#161b22', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink:0, borderBottomLeftRadius: '16px', borderBottomRightRadius: '16px' }}>
-                    <div className="mono" style={{ fontSize: '11px', color: '#8b949e' }}>{selectedHeadline ? `Dipilih: ${selectedHeadline.time}` : 'Pilih 1 berita'}</div>
-                    <button onClick={handleJadikanBerita} disabled={!selectedHeadline} style={{ padding: '10px 16px', backgroundColor: selectedHeadline ? '#1f6feb' : '#30363d', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: '700', cursor: selectedHeadline ? 'pointer' : 'not-allowed', fontSize: '12px' }}>→ Jadikan Berita</button>
+                    <div className="mono" style={{ fontSize: '11px', color: '#8b949e' }}>{selectedHeadline ? `Dipilih: ${selectedHeadline.clusterScore} poin • ${selectedHeadline.tierLabel} • ${selectedHeadline.source}` : 'Pilih 1 berita'}</div>
+                    <button onClick={handleJadikanBerita} disabled={!selectedHeadline} style={{ padding: '10px 16px', backgroundColor: selectedHeadline ? (selectedHeadline.isTopNews ? '#f85149' : '#1f6feb') : '#30363d', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: '700', cursor: selectedHeadline ? 'pointer' : 'not-allowed', fontSize: '12px' }}>→ Jadikan Berita</button>
                   </div>
                 </div>
               </div>
