@@ -1,33 +1,44 @@
 import { NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 
-// 11 MENU - CHECKED & FAIR - BALIK KE FILE WORK LO + FAIR UNTUK KRIMINAL & SOSIAL + FIX MEGAWATI ATLET
+// 11 MENU - STRICT FILTER - FIX NGACO UBED FRENCH OPEN MASUK KDM & KEMNAKER MASUK PDIP
 const TOPIC_QUERIES = {
   jakarta: ['Pemprov DKI Jakarta OR Gubernur DKI'],
   nasional: ['berita nasional Indonesia'],
   bencana: ['bencana alam OR gempa bumi OR banjir'],
   pdip: ['PDI Perjuangan OR PDIP'],
-  // FIX MEGAWATI: query politik only + filter atlet di bawah
-  megawati: ['Megawati Soekarnoputri OR Ketua Umum PDIP OR Bu Mega PDIP'],
-  puan: ['Puan Maharani OR Ketua DPR RI'],
+  megawati: ['Megawati Soekarnoputri OR Ketua Umum PDIP'],
+  puan: ['Puan Maharani'],
   kritik_publik: ['kritik pemerintah OR demo mahasiswa OR unjuk rasa'],
   dedi_mulyadi: ['Dedi Mulyadi OR Gubernur Jawa Barat'],
-  keluarga_jokowi: ['Jokowi OR Gibran Rakabuming OR Keluarga Jokowi'],
-  // SOSIAL & VIRAL - 4 query kecil sesuai kriteria lo (Fenomena Sosial, Curhatan Netizen, Video Viral, Kisah Haru, Cerita Unik, Fenomena Aneh, Anomali, Inspiratif)
+  keluarga_jokowi: ['Jokowi OR Gibran OR Keluarga Jokowi'],
   sosial: [
-    'fenomena sosial OR curhatan netizen OR curhat viral',
-    'video viral OR tiktok viral OR viral medsos',
-    'kisah haru OR cerita unik OR kisah inspiratif OR inspiratif',
-    'fenomena aneh OR anomali OR tradisi unik OR kejadian lucu OR nenek kakek viral'
+    'fenomena sosial OR curhatan netizen',
+    'video viral OR tiktok viral',
+    'kisah haru OR cerita unik OR inspiratif',
+    'fenomena aneh OR anomali OR tradisi unik OR viral'
   ],
-  // KRIMINAL - 5 query kecil sesuai kriteria lo (Pembunuhan, Narkoba, Curanmor, Maling, KDRT, dll)
   kriminal: [
     'pembunuhan OR pembunuhan sadis',
-    'narkoba OR sabu OR ganja OR ekstasi OR pengedaran narkotika',
-    'curanmor OR maling OR pencurian OR perampokan OR begal OR jambret',
-    'KDRT OR kekerasan rumah tangga OR penganiayaan OR pengeroyokan OR pembacokan OR penembakan',
-    'pemerkosaan OR pelecehan seksual OR penipuan OR mayat ditemukan OR mutilasi OR tawuran'
+    'narkoba OR sabu OR ganja',
+    'curanmor OR maling OR pencurian OR perampokan OR begal',
+    'KDRT OR penganiayaan OR pengeroyokan',
+    'pemerkosaan OR penipuan OR mayat ditemukan'
   ],
+};
+
+const TOPIC_FILTERS = {
+  jakarta: ['jakarta','dki'],
+  nasional: ['nasional','indonesia'],
+  bencana: ['bencana','gempa','banjir','longsor','erupsi','gunung meletus'],
+  pdip: ['pdip','pdi perjuangan','pdi-p'],
+  megawati: ['megawati','mega soekarnoputri','ketua umum pdip','bu mega'],
+  puan: ['puan maharani','puan'],
+  kritik_publik: ['kritik','demo','unjuk rasa','protes','desak mundur'],
+  dedi_mulyadi: ['dedi mulyadi','kdm','gubernur jawa barat','kang dedi'],
+  keluarga_jokowi: ['jokowi','gibran','kaesang','keluarga jokowi','bobby','jan ethes'],
+  sosial: ['viral','fenomena sosial','curhatan','curhat','video viral','kisah haru','cerita unik','fenomena aneh','anomali','inspiratif','tradisi unik','kejadian lucu','netizen','tiktok','nenek viral','ojol'],
+  kriminal: ['kriminal','bunuh','narkoba','sabu','ganja','curanmor','maling','curi','rampok','begal','jambret','kdrt','aniaya','keroyok','bacok','tembak','perkosa','leceh','tipu','mayat','mutilasi','tawuran'],
 };
 
 const TOPIC_META = {
@@ -68,136 +79,84 @@ function parseRSS(xml) {
 
 const STOPWORDS = new Set(['dan','di','yang','untuk','dari','dengan','pada','ke','ini','itu','adalah','akan','bisa','jadi','soal','tentang','dalam','secara','oleh','sebagai','saat','tengah','juga','sudah','telah','buka','ada','jadi','jika','atau','oleh','para','sebuah','tersebut','agar','hingga','bahwa','karena','dalam','kepada','namun','tetapi']);
 function normalizeWords(title) { return title.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(w => w.length > 2 && !STOPWORDS.has(w)); }
-function jaccardSimilarity(aTitle, bTitle) {
-  const aWords = new Set(normalizeWords(aTitle));
-  const bWords = new Set(normalizeWords(bTitle));
-  if (aWords.size === 0 || bWords.size === 0) return 0;
-  let inter = 0;
-  for (const w of aWords) if (bWords.has(w)) inter++;
-  const union = aWords.size + bWords.size - inter;
-  return union === 0 ? 0 : inter / union;
-}
-function clusterHeadlines(headlines, threshold = 0.38) {
-  const clusters = [];
-  const sorted = [...headlines].sort((a,b) => a.minutesAgo - b.minutesAgo);
-  for (const h of sorted) {
-    let found = false;
-    for (const cluster of clusters) {
-      const rep = cluster[0];
-      const sim = jaccardSimilarity(h.title, rep.title);
-      const sameYear = (h.title.match(/2029|2024|2025/) && rep.title.match(/2029|2024|2025/));
-      if (sim >= threshold || (sim >= 0.28 && sameYear)) {
-        cluster.push(h);
-        cluster.sort((a,b) => a.minutesAgo - b.minutesAgo);
-        found = true;
-        break;
-      }
-    }
-    if (!found) clusters.push([h]);
-  }
-  return clusters.map((cluster, idx) => {
-    const main = cluster[0];
-    const allSources = [...new Set(cluster.map(c => c.source))];
-    return { id: `cluster-${idx}`, isCluster: cluster.length > 1, count: cluster.length, title: main.title, mainUrl: main.url, time: main.time, minutesAgo: main.minutesAgo, sources: allSources, headlines: cluster };
-  });
+function jaccardSimilarity(a,b){ const aW=new Set(normalizeWords(a)), bW=new Set(normalizeWords(b)); if(!aW.size||!bW.size) return 0; let inter=0; for(const w of aW) if(bW.has(w)) inter++; const union=aW.size+bW.size-inter; return union===0?0:inter/union; }
+function clusterHeadlines(headlines, threshold=0.38){
+  const clusters=[]; const sorted=[...headlines].sort((a,b)=>a.minutesAgo-b.minutesAgo);
+  for(const h of sorted){ let found=false; for(const cluster of clusters){ const rep=cluster[0]; const sim=jaccardSimilarity(h.title, rep.title); const sameYear=(h.title.match(/2029|2024|2025/) && rep.title.match(/2029|2024|2025/)); if(sim>=threshold || (sim>=0.28 && sameYear)){ cluster.push(h); cluster.sort((a,b)=>a.minutesAgo-b.minutesAgo); found=true; break; } } if(!found) clusters.push([h]); }
+  return clusters.map((cluster, idx)=>{ const main=cluster[0]; const allSources=[...new Set(cluster.map(c=>c.source))]; return { id:`cluster-${idx}`, isCluster:cluster.length>1, count:cluster.length, title:main.title, mainUrl:main.url, time:main.time, minutesAgo:main.minutesAgo, sources:allSources, headlines:cluster }; });
 }
 
-async function fetchSingleQuery(q, hours) {
-  const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(q + ` when:${hours}h`)}&hl=id&gl=ID&ceid=ID:id`;
-  const res = await fetch(rssUrl, { headers: { 'User-Agent': 'Mozilla/5.0' }, cache: 'no-store' });
-  if (!res.ok) return [];
-  const xml = await res.text();
-  return parseRSS(xml);
+async function fetchSingleQuery(q, hours){
+  try{
+    const fullQ = `${q} when:${hours}h`;
+    const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(fullQ)}&hl=id&gl=ID&ceid=ID:id`;
+    const res = await fetch(rssUrl, { headers: { 'User-Agent': 'Mozilla/5.0' }, cache: 'no-store' });
+    if(!res.ok) return [];
+    const xml = await res.text();
+    return parseRSS(xml);
+  }catch{ return []; }
 }
 
-async function fetchRSS(topicId, hours) {
-  try {
+async function fetchRSS(topicId, hours){
+  try{
     const queries = TOPIC_QUERIES[topicId] || [topicId];
     let allRaw = [];
-
-    // FAIR TAPI TETAP RELEVAN: fetch semua sub-query untuk sosial & kriminal, untuk yang lain cukup 1 query utama
-    const promises = queries.map(q => fetchSingleQuery(q, hours));
-    const results = await Promise.all(promises);
+    const results = await Promise.all(queries.map(q => fetchSingleQuery(q, hours)));
     results.forEach(r => allRaw = allRaw.concat(r));
 
-    // fallback khusus sosial & kriminal kalau 3 jam kosong -> coba 24 jam broad (biar fair, gak 0)
-    if (allRaw.length === 0 && (topicId === 'sosial' || topicId === 'kriminal')) {
-      const fallbackQ = topicId === 'sosial' ? 'viral OR unik OR lucu' : 'kriminal OR pembunuhan OR narkoba';
-      allRaw = await fetchSingleQuery(fallbackQ, 24);
-    }
-
     const seen = new Set();
-    const items = [];
-    for (let i = 0; i < allRaw.length; i++) {
+    const items=[];
+    const requiredKeywords = TOPIC_FILTERS[topicId] || [];
+
+    for(let i=0;i<allRaw.length;i++){
       const { titleFull, linkRaw, pubDateStr, source } = allRaw[i];
       const pubDate = new Date(pubDateStr);
-      const minutesAgo = isNaN(pubDate.getTime()) ? 9999 : Math.floor((Date.now() - pubDate.getTime()) / 60000);
-      if (minutesAgo > hours * 60 + 180) {
-        // kalau fallback 24 jam, toleransi lebih longgar
-        if (!(topicId === 'sosial' || topicId === 'kriminal') || minutesAgo > 24*60+180) continue;
-      }
+      const minutesAgo = isNaN(pubDate.getTime()) ? 9999 : Math.floor((Date.now()-pubDate.getTime())/60000);
+      if(minutesAgo > hours*60 + 180) continue;
       const cleanTitle = (titleFull.split(' - ')[0] || titleFull).trim();
-      if (!cleanTitle) continue;
+      if(!cleanTitle) continue;
       const key = cleanTitle.toLowerCase();
-      if (seen.has(key)) continue;
+      if(seen.has(key)) continue;
       seen.add(key);
-      const t = cleanTitle.toLowerCase();
+      const t = key;
 
-      // FILTER MEGAWATI ATLET - JANGAN ADA VOLI
-      if (topicId === 'megawati') {
-        const atletKeywords = ['voli','volley','pevoli','hangestri','red sparks','megatron','proliga','timnas voli','atlet voli','voli putri','megawati hangestri'];
-        if (atletKeywords.some(k => t.includes(k))) continue;
-        if (!t.includes('megawati') && !t.includes('mega') && !t.includes('ketua umum')) continue;
+      // STRICT FILTER - WAJIB MENGANDUNG KEYWORD TOPIK
+      if(requiredKeywords.length > 0){
+        if(!requiredKeywords.some(k => t.includes(k))) continue;
       }
-      if (topicId === 'jakarta' && !(t.includes('jakarta') || t.includes('dki'))) continue;
-      if (topicId === 'puan' && !t.includes('puan')) continue;
-      // kriminal & sosial JANGAN filter ketat biar fair, biarin lolos sesuai query
 
-      items.push({
-        id: `${topicId}-${i}`,
-        source: (source || 'Google News').slice(0, 30),
-        time: formatTimeAgo(minutesAgo),
-        minutesAgo,
-        title: cleanTitle,
-        url: linkRaw.replace(/&amp;/g, '&'),
-        link: linkRaw.replace(/&amp;/g, '&'),
-      });
+      // EXTRA FIX MEGAWATI ATLET
+      if(topicId==='megawati'){
+        const atletKeywords = ['voli','volley','pevoli','hangestri','red sparks','megatron','proliga','timnas voli','atlet voli','voli putri'];
+        if(atletKeywords.some(k => t.includes(k))) continue;
+      }
+
+      items.push({ id:`${topicId}-${i}`, source:(source||'Google News').slice(0,30), time:formatTimeAgo(minutesAgo), minutesAgo, title:cleanTitle, url:linkRaw.replace(/&amp;/g,'&'), link:linkRaw.replace(/&amp;/g,'&') });
     }
-    items.sort((a,b) => a.minutesAgo - b.minutesAgo);
-    // FAIR: batasi 20 biar gak jomplang 40 vs 1, tapi untuk kriminal & sosial minimal harus ada
-    return items.slice(0, 20);
-  } catch {
-    return [];
-  }
+    items.sort((a,b)=>a.minutesAgo-b.minutesAgo);
+    return items.slice(0,20);
+  }catch{ return []; }
 }
 
-export async function GET(req) {
-  try {
+export async function GET(req){
+  try{
     const { searchParams } = new URL(req.url);
     const filterRaw = searchParams.get('filter') || '3 Jam';
     let hours = 3;
-    if (filterRaw.includes('6')) hours = 6;
-    else if (filterRaw.includes('24')) hours = 24;
-    else if (filterRaw.includes('3')) hours = 3;
+    if(filterRaw.includes('6')) hours = 6;
+    else if(filterRaw.includes('24')) hours = 24;
+    else if(filterRaw.includes('3')) hours = 3;
 
     const topicOrder = ['jakarta','nasional','bencana','pdip','megawati','puan','kritik_publik','dedi_mulyadi','keluarga_jokowi','sosial','kriminal'];
 
-    const results = await Promise.all(topicOrder.map(async (id) => {
+    const results = await Promise.all(topicOrder.map(async (id)=>{
       const headlines = await fetchRSS(id, hours);
       const clustered = clusterHeadlines(headlines);
-      return {
-        id,
-        title: TOPIC_META[id].title,
-        icon: TOPIC_META[id].icon,
-        volume: `${headlines.length} berita • ${clustered.length} isu`,
-        lastUpdate: `dalam ${hours} jam - REAL FAIR`,
-        headlines,
-        clusters: clustered,
-      };
+      return { id, title: TOPIC_META[id].title, icon: TOPIC_META[id].icon, volume: `${headlines.length} berita • ${clustered.length} isu`, lastUpdate: `dalam ${hours} jam - STRICT`, headlines, clusters: clustered };
     }));
 
-    return NextResponse.json({ success: true, filter: filterRaw, hours, lastSync: new Date().toISOString(), topics: results }, { status: 200 });
-  } catch (e) {
-    return NextResponse.json({ success: false, error: String(e), topics: [] }, { status: 200 });
+    return NextResponse.json({ success:true, filter:filterRaw, hours, lastSync:new Date().toISOString(), topics: results }, { status:200 });
+  }catch(e){
+    return NextResponse.json({ success:false, error:String(e), topics:[] }, { status:200 });
   }
 }
