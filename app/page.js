@@ -1,8 +1,6 @@
 "use client";
 import React, { useState, useRef, useEffect } from 'react';
-
 export const dynamic = 'force-dynamic';
-
 export default function AgoraVadaPortal() {
   const [currentPage, setCurrentPage] = useState(0);
   const [urlBerita, setUrlBerita] = useState('');
@@ -33,8 +31,6 @@ export default function AgoraVadaPortal() {
   const canvasRef = useRef(null);
   const [loadedBgImg, setLoadedBgImg] = useState(null);
   const [templateImgObj, setTemplateImgObj] = useState(null);
-
-  // TREND RADAR
   const [trendTimeFilter, setTrendTimeFilter] = useState('1 Jam');
   const [selectedTopic, setSelectedTopic] = useState(null);
   const [showDetail, setShowDetail] = useState(false);
@@ -48,21 +44,18 @@ export default function AgoraVadaPortal() {
     { id: 'megawati', title: 'Megawati Soekarnoputri', icon: '👩‍🦳', volume: '41/jam', velocity: '+15%', sentiment: 'Campur', sentimentColor: '#eab308', lastUpdate: '12 menit lalu', headlines: [] },
     { id: 'puan', title: 'Puan Maharani', icon: '👩‍💼', volume: '28/jam', velocity: '+5%', sentiment: 'Positif 54%', sentimentColor: '#22c55e', lastUpdate: '18 menit lalu', headlines: [] },
   ]);
-
   useEffect(() => {
     const tImg = new Image();
     tImg.src = '/Agora Vada Template.png';
     tImg.onload = () => setTemplateImgObj(tImg);
   }, []);
-
   useEffect(() => {
     if (!imageUrl) { setLoadedBgImg(null); return; }
-    const img = new Image(); 
+    const img = new Image();
     img.crossOrigin = 'anonymous';
-    img.onload = () => setLoadedBgImg(img); 
+    img.onload = () => setLoadedBgImg(img);
     img.src = imageUrl;
   }, [imageUrl]);
-
   useEffect(() => {
     if (currentPage !== 0) return;
     const fetchRadar = async () => {
@@ -70,15 +63,12 @@ export default function AgoraVadaPortal() {
       try {
         const res = await fetch(`/api/trend-radar?filter=${encodeURIComponent(trendTimeFilter)}`, { cache: 'no-store' });
         const data = await res.json();
-        if (data?.topics?.length) {
-          setTrendTopics(data.topics);
-        }
+        if (data?.topics?.length) setTrendTopics(data.topics);
       } catch (e) {}
       finally { setTrendLoading(false); }
     };
     fetchRadar();
   }, [currentPage, trendTimeFilter]);
-
   const renderRichText = (ctx, htmlString, x, y, maxWidth, lineHeight, baseFontSize) => {
     if (!htmlString || typeof document === 'undefined') return;
     ctx.textBaseline = 'top';
@@ -128,7 +118,6 @@ export default function AgoraVadaPortal() {
       curY += lineHeight;
     });
   };
-
   const renderCanvas = (ctx, canvas, showMarginGuide = true) => {
     if (!ctx || !canvas) return;
     ctx.fillStyle = '#111827'; ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -139,13 +128,11 @@ export default function AgoraVadaPortal() {
     renderRichText(ctx, judulHtml, teksX, teksY, 1080 - teksX - MARGIN_PX, lh, ukuranFont);
     if (sumberBerita) { ctx.fillStyle = sumberColor; ctx.font = ukuranFontSumber + 'px PoppinsSemiBoldItalic, sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText(sumberBerita, sumberX, sumberY); }
   };
-
   useEffect(() => {
     if (currentPage !== 3) return;
     const c = canvasRef.current; if (!c) return;
     const ctx = c.getContext('2d'); if (ctx) renderCanvas(ctx, c, true);
   }, [currentPage, loadedBgImg, templateImgObj, imgX, imgY, imgScale, teksX, teksY, ukuranFont, jarakBaris, sumberX, sumberY, ukuranFontSumber, judulHtml, sumberBerita]);
-
   const handleMouseDown = (e) => { setIsDragging(true); const cx = e.clientX || e.touches?.[0]?.clientX; const cy = e.clientY || e.touches?.[0]?.clientY; setDragStart({ x: cx - imgX, y: cy - imgY }); };
   const handleMouseMove = (e) => { if (!isDragging) return; const cx = e.clientX || e.touches?.[0]?.clientX; const cy = e.clientY || e.touches?.[0]?.clientY; setImgX(cx - dragStart.x); setImgY(cy - dragStart.y); };
   const handleMouseUp = () => setIsDragging(false);
@@ -178,7 +165,6 @@ export default function AgoraVadaPortal() {
     setUrlBerita(selectedHeadline.url); setSumberBerita(selectedHeadline.source);
     setCurrentPage(1); setShowDetail(false);
   };
-
   return (
     <div style={{ width: '100%', minHeight: '100vh', backgroundColor: '#0a0a0f', color: '#fff' }}>
       <style>{`@import url("https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap"); *{font-family:'Geist',sans-serif} .mono{font-family:'Geist Mono',monospace}`}</style>
@@ -213,7 +199,6 @@ export default function AgoraVadaPortal() {
                 </div>
               ))}
             </div>
-
             {showDetail && selectedTopic && (
               <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 50, display: 'flex', justifyContent: 'center', padding: '20px', overflowY: 'auto' }}>
                 <div style={{ width: '100%', maxWidth: '800px', backgroundColor: '#0d1117', border: '1px solid #30363d', borderRadius: '16px' }}>
@@ -225,7 +210,6 @@ export default function AgoraVadaPortal() {
                     </div>
                     <button onClick={() => setShowDetail(false)} style={{ background: 'none', border: 'none', color: '#8b949e', fontSize: '20px', cursor: 'pointer' }}>×</button>
                   </div>
-                  
                   <div style={{ padding: '16px' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '65vh', overflowY: 'auto' }}>
                       {selectedTopic.headlines.map(h => {
@@ -242,14 +226,10 @@ export default function AgoraVadaPortal() {
                           </div>
                         );
                       })}
-                      {selectedTopic.headlines.length === 0 && <div style={{ padding: '40px', textAlign: 'center', color: '#8b949e', fontSize: '13px' }}>Tidak ada berita dalam {trendTimeFilter} terakhir.</div>}
                     </div>
                   </div>
-
                   <div style={{ padding: '12px 16px', borderTop: '1px solid #30363d', backgroundColor: '#161b22', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottomLeftRadius: '16px', borderBottomRightRadius: '16px' }}>
-                    <div className="mono" style={{ fontSize: '11px', color: '#8b949e' }}>
-                      {selectedHeadline ? `Dipilih: ${selectedHeadline.source}` : 'Pilih 1 berita'}
-                    </div>
+                    <div className="mono" style={{ fontSize: '11px', color: '#8b949e' }}>{selectedHeadline ? `Dipilih: ${selectedHeadline.source}` : 'Pilih 1 berita'}</div>
                     <button onClick={handleJadikanBerita} disabled={!selectedHeadline} style={{ padding: '10px 16px', backgroundColor: selectedHeadline ? '#1f6feb' : '#30363d', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: '700', cursor: selectedHeadline ? 'pointer' : 'not-allowed', fontSize: '12px' }}>→ Jadikan Berita</button>
                   </div>
                 </div>
@@ -257,104 +237,8 @@ export default function AgoraVadaPortal() {
             )}
           </div>
         )}
-
-        {currentPage !== 0 && (<div style={{ backgroundColor: '#161b22', border: '1px solid #30363d', borderRadius: '16px', padding: '24px' }}><p style={{color:'#8b949e', fontSize:'12px'}}>Editor Agora Vada</p><button onClick={()=>setCurrentPage(0)} style={{marginTop:'12px', padding:'8px 12px', backgroundColor:'#21262d', border:'1px solid #30363d', color:'#fff', borderRadius:'8px', cursor:'pointer'}}>← Kembali ke Trend Radar</button></div>)}
+        {currentPage !== 0 && (<div style={{ backgroundColor: '#161b22', border: '1px solid #30363d', borderRadius: '16px', padding: '24px' }}><button onClick={()=>setCurrentPage(0)} style={{ padding: '8px 12px', backgroundColor: '#21262d', border: '1px solid #30363d', color: '#fff', borderRadius: '8px', cursor: 'pointer' }}>← Kembali ke Trend Radar</button></div>)}
       </div>
     </div>
   );
-}
-
-==============================
-FILE 2: app/api/trend-radar/route.js
-==============================
-import { NextResponse } from 'next/server';
-import * as cheerio from 'cheerio';
-export const dynamic = 'force-dynamic';
-const TOPIC_QUERIES = {
-  jakarta: 'Jakarta',
-  nasional: 'berita nasional Indonesia',
-  bencana: 'bencana alam OR gempa bumi OR banjir',
-  pdip: 'PDI Perjuangan',
-  megawati: 'Megawati Soekarnoputri',
-  puan: 'Puan Maharani',
-};
-const TOPIC_META = {
-  jakarta: { title: 'Jakarta', icon: '🏙️' },
-  nasional: { title: 'Berita Nasional', icon: '📰' },
-  bencana: { title: 'Bencana Terkini', icon: '🌋' },
-  pdip: { title: 'PDI Perjuangan', icon: '🐂' },
-  megawati: { title: 'Megawati Soekarnoputri', icon: '👩‍🦳' },
-  puan: { title: 'Puan Maharani', icon: '👩‍💼' },
-};
-function getCleanLink(raw) {
-  try {
-    if (!raw) return '#';
-    if (typeof raw === 'string' && raw.startsWith('http')) return raw.replace(/&amp;/g, '&').trim();
-    const str = JSON.stringify(raw);
-    const m = str.match(/https?:\/\/[^\s"'\\]+/);
-    if (m) return m[0].replace(/\\"/g, '').replace(/&amp;/g, '&').replace(/["']+$/, '');
-  } catch {}
-  return '#';
-}
-function formatTimeAgo(minutes) {
-  if (minutes < 60) return `${minutes}m lalu`;
-  if (minutes < 1440) return `${Math.floor(minutes/60)}j lalu`;
-  return `${Math.floor(minutes/1440)}h lalu`;
-}
-async function fetchGoogleNewsRSS(topicId, hours) {
-  const baseQuery = TOPIC_QUERIES[topicId] || topicId;
-  let whenClause = ` when:${hours}h`;
-  const q = `${baseQuery}${whenClause}`;
-  const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=id&gl=ID&ceid=ID:id`;
-  try {
-    const res = await fetch(rssUrl, { headers: { 'User-Agent': 'Mozilla/5.0' }, next: { revalidate: 60 }, cache: 'no-store' });
-    if (!res.ok) throw new Error('RSS fail');
-    const xml = await res.text();
-    const $ = cheerio.load(xml, { xmlMode: true });
-    const items = [];
-    $('item').each((i, el) => {
-      const titleFull = $(el).find('title').text() || '';
-      const linkRaw = $(el).find('link').text() || '';
-      const pubDateStr = $(el).find('pubDate').text() || '';
-      const source = $(el).find('source').text() || titleFull.split(' - ').pop() || 'Google News';
-      const description = $(el).find('description').text() || '';
-      const pubDate = new Date(pubDateStr);
-      const minutesAgo = isNaN(pubDate.getTime()) ? 9999 : Math.floor((Date.now() - pubDate.getTime()) / 60000);
-      if (hours && minutesAgo > hours * 60 + 60) return;
-      const cleanTitle = titleFull.split(' - ')[0] || titleFull;
-      items.push({
-        id: i + 1, source: source.trim().slice(0, 20), time: formatTimeAgo(minutesAgo), minutesAgo, pubDate: pubDateStr,
-        title: cleanTitle, summary: cheerio.load(description).text().slice(0, 120), url: getCleanLink(linkRaw), link: getCleanLink(linkRaw),
-      });
-    });
-    return items;
-  } catch (e) { return []; }
-}
-async function fetchBMKG() {
-  try {
-    const res = await fetch('https://data.bmkg.go.id/DataMKG/TEWS/autogempa.json', { next: { revalidate: 60 } });
-    const json = await res.json(); const info = json?.Infogempa?.gempa; if (!info) return null;
-    return { id: 999, source: 'BMKG', time: 'Baru saja', minutesAgo: 1, title: `Gempa M ${info.Magnitude} ${info.Wilayah}`, summary: `${info.Kedalaman} • ${info.Jam} WIB`, url: 'https://www.bmkg.go.id', link: 'https://www.bmkg.go.id', isBMKG: true };
-  } catch { return null; }
-}
-export async function GET(req) {
-  const { searchParams } = new URL(req.url);
-  const filterRaw = searchParams.get('filter') || '1 Jam';
-  let hours = 1;
-  if (filterRaw.includes('1')) hours = 1; else if (filterRaw.includes('6')) hours = 6; else if (filterRaw.includes('24')) hours = 24;
-  const maxMinutes = hours * 60;
-  const bmkgLive = await fetchBMKG();
-  const topicIds = Object.keys(TOPIC_QUERIES);
-  const results = await Promise.all(topicIds.map(async (id) => {
-    let headlines = await fetchGoogleNewsRSS(id, hours);
-    if (id === 'bencana' && bmkgLive && bmkgLive.minutesAgo <= maxMinutes) headlines = [bmkgLive, ...headlines.filter(h => !h.isBMKG)];
-    if (headlines.length === 0 && id === 'bencana' && bmkgLive) headlines = [bmkgLive];
-    return {
-      id, title: TOPIC_META[id].title, icon: TOPIC_META[id].icon, volume: `${headlines.length} berita`,
-      velocity: `+${Math.floor(Math.random()*60)+5}%`, sentiment: id === 'pdip' ? 'Negatif 72%' : id === 'bencana' ? 'Negatif' : id === 'puan' ? 'Positif 54%' : 'Campur',
-      sentimentColor: id === 'bencana' || id === 'pdip' ? '#ef4444' : id === 'puan' ? '#22c55e' : '#eab308',
-      lastUpdate: `dalam ${hours} jam terakhir`, headlines: headlines,
-    };
-  }));
-  return NextResponse.json({ success: true, status: 'success', filter: filterRaw, hours, maxMinutes, lastSync: new Date().toISOString(), topics: results });
 }
