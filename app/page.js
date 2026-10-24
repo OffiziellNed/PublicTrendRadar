@@ -14,12 +14,6 @@ export default function AgoraVadaPortal() {
   const [reviewImageBlob, setReviewImageBlob] = useState(null);
   const [captionText, setCaptionText] = useState('');
   const [isUploading, setIsUploading] = useState(false);
-
-  const PROMPT_TEMPLATES = {
-    homeless: `Tolong buat 10 judul berita menggunakan hook dan copywriter handal untuk media alternatif "AgoraVada", serta buatkan caption untuk instagram, normatif saja dan informatif. Pastikan diakhiri oleh sumber berita dan 3 hastag (wajib ada #AgoraVada sisanya disesuaikan dengan kata kunci subjek dan topik yang dibahas).`,
-    threads: `Tolong identifikasi isu, paparkan fakta penting, berikan 10 perspektif 5 opini Pro dan 5 Opini Kontra untuk X atau Threads, Jika kontra boleh gunakan Bahasa satir, sarkas, tajam. Pastikan singkat singkat saja`
-  };
-
   const [isCopied, setIsCopied] = useState(false);
   const [imgX, setImgX] = useState(0);
   const [imgY, setImgY] = useState(0);
@@ -35,25 +29,24 @@ export default function AgoraVadaPortal() {
   const [ukuranFontSumber, setUkuranFontSumber] = useState(25);
   const [sumberColor, setSumberColor] = useState('#FFFFFF');
   const [templateMode, setTemplateMode] = useState('agoravada');
-  const [teksAlign, setTeksAlign] = useState('left');
   const MARGIN_PX = 85;
   const canvasRef = useRef(null);
   const [loadedBgImg, setLoadedBgImg] = useState(null);
   const [templateImgObj, setTemplateImgObj] = useState(null);
 
+  // TREND RADAR
   const [trendTimeFilter, setTrendTimeFilter] = useState('1 Jam');
   const [selectedTopic, setSelectedTopic] = useState(null);
   const [showDetail, setShowDetail] = useState(false);
-  const [selectedHeadlines, setSelectedHeadlines] = useState([]);
-  const [activeTab, setActiveTab] = useState('Headlines');
+  const [selectedHeadline, setSelectedHeadline] = useState(null);
   const [trendLoading, setTrendLoading] = useState(false);
   const [trendTopics, setTrendTopics] = useState([
-    { id: 'jakarta', title: 'Jakarta', icon: '🏙️', volume: '89/jam', velocity: '+45%', sentiment: 'Campur', sentimentColor: '#eab308', hot: false, lastUpdate: '2 menit lalu', headlines: [], hooks: ['URGENT: Pluit Tenggelam'], keywords: [{k:'#BanjirRob', v:'↑210%'}] },
-    { id: 'nasional', title: 'Berita Nasional', icon: '📰', volume: '210/jam', velocity: '+12%', sentiment: 'Netral', sentimentColor: '#8b949e', hot: false, lastUpdate: '5 menit lalu', headlines: [], hooks: ['APBN 2025'], keywords: [{k:'#APBN2025', v:'↑120%'}] },
-    { id: 'bencana', title: 'Bencana Terkini', icon: '🌋', volume: '34/jam', velocity: '+230%', sentiment: 'Negatif', sentimentColor: '#ef4444', hot: true, lastUpdate: '1 menit lalu', headlines: [], hooks: ['BREAKING: Gempa'], keywords: [{k:'#Gempa', v:'↑450%'}] },
-    { id: 'pdip', title: 'PDI Perjuangan', icon: '🐂', volume: '67/jam', velocity: '+89%', sentiment: 'Negatif 72%', sentimentColor: '#ef4444', hot: true, lastUpdate: '4 menit lalu', headlines: [], hooks: ['PDIP Retak?'], keywords: [{k:'#RakernasPDIP', v:'↑89%'}] },
-    { id: 'megawati', title: 'Megawati Soekarnoputri', icon: '👩‍🦳', volume: '41/jam', velocity: '+15%', sentiment: 'Campur', sentimentColor: '#eab308', hot: false, lastUpdate: '12 menit lalu', headlines: [], hooks: ['Megawati'], keywords: [{k:'#Megawati', v:'↑15%'}] },
-    { id: 'puan', title: 'Puan Maharani', icon: '👩‍💼', volume: '28/jam', velocity: '+5%', sentiment: 'Positif 54%', sentimentColor: '#22c55e', hot: false, lastUpdate: '18 menit lalu', headlines: [], hooks: ['Puan'], keywords: [{k:'#Puan', v:'↑5%'}] },
+    { id: 'jakarta', title: 'Jakarta', icon: '🏙️', volume: '89/jam', velocity: '+45%', sentiment: 'Campur', sentimentColor: '#eab308', lastUpdate: '2 menit lalu', headlines: [] },
+    { id: 'nasional', title: 'Berita Nasional', icon: '📰', volume: '210/jam', velocity: '+12%', sentiment: 'Netral', sentimentColor: '#8b949e', lastUpdate: '5 menit lalu', headlines: [] },
+    { id: 'bencana', title: 'Bencana Terkini', icon: '🌋', volume: '34/jam', velocity: '+230%', sentiment: 'Negatif', sentimentColor: '#ef4444', lastUpdate: '1 menit lalu', headlines: [] },
+    { id: 'pdip', title: 'PDI Perjuangan', icon: '🐂', volume: '67/jam', velocity: '+89%', sentiment: 'Negatif 72%', sentimentColor: '#ef4444', lastUpdate: '4 menit lalu', headlines: [] },
+    { id: 'megawati', title: 'Megawati Soekarnoputri', icon: '👩‍🦳', volume: '41/jam', velocity: '+15%', sentiment: 'Campur', sentimentColor: '#eab308', lastUpdate: '12 menit lalu', headlines: [] },
+    { id: 'puan', title: 'Puan Maharani', icon: '👩‍💼', volume: '28/jam', velocity: '+5%', sentiment: 'Positif 54%', sentimentColor: '#22c55e', lastUpdate: '18 menit lalu', headlines: [] },
   ]);
 
   useEffect(() => {
@@ -80,7 +73,7 @@ export default function AgoraVadaPortal() {
         if (data?.topics?.length) {
           setTrendTopics(data.topics);
         }
-      } catch (e) { console.log('radar offline'); }
+      } catch (e) {}
       finally { setTrendLoading(false); }
     };
     fetchRadar();
@@ -179,11 +172,10 @@ export default function AgoraVadaPortal() {
       alert('Berhasil publish IG!'); setCurrentPage(3);
     } catch (err) { alert('Gagal: ' + err.message); } finally { setIsUploading(false); }
   };
-  const openDetail = (topic) => { setSelectedTopic(topic); setShowDetail(true); setSelectedHeadlines([]); setActiveTab('Headlines'); };
-  const toggleHeadline = (h) => { setSelectedHeadlines(prev => prev.find(x => x.id === h.id) ? prev.filter(x => x.id !== h.id) : [...prev, h]); };
+  const openDetail = (topic) => { setSelectedTopic(topic); setShowDetail(true); setSelectedHeadline(null); };
   const handleJadikanBerita = () => {
-    if (!selectedHeadlines.length) return alert('Pilih minimal 1 berita dulu');
-    const first = selectedHeadlines[0]; setUrlBerita(first.url); setSumberBerita(first.source);
+    if (!selectedHeadline) return alert('Pilih 1 berita dulu');
+    setUrlBerita(selectedHeadline.url); setSumberBerita(selectedHeadline.source);
     setCurrentPage(1); setShowDetail(false);
   };
 
@@ -206,20 +198,25 @@ export default function AgoraVadaPortal() {
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(320px,1fr))', gap: '16px' }}>
               {trendTopics.map(topic => (
-                <div key={topic.id} style={{ backgroundColor: '#161b22', border: `1px solid ${topic.hot ? '#f85149' : '#30363d'}`, borderRadius: '16px', padding: '18px', position: 'relative' }}>
-                  {topic.hot && <div style={{ position: 'absolute', top: '12px', right: '12px', fontSize: '10px', backgroundColor: '#f85149', color: '#fff', padding: '3px 8px', borderRadius: '10px', fontWeight: '700' }} className="mono">HOT +{topic.velocity}</div>}
+                <div key={topic.id} style={{ backgroundColor: '#161b22', border: '1px solid #30363d', borderRadius: '16px', padding: '18px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
                     <div style={{ width: '48px', height: '48px', backgroundColor: '#0d1117', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', border: '1px solid #30363d' }}>{topic.icon}</div>
                     <div><div style={{ fontWeight: '700', fontSize: '15px' }}>{topic.title}</div><div className="mono" style={{ fontSize: '11px', color: '#8b949e' }}>{topic.volume} • {topic.lastUpdate}</div></div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+                    <div className="mono" style={{ fontSize: '11px', backgroundColor: '#0d1117', border: '1px solid #30363d', padding: '4px 8px', borderRadius: '6px' }}>Vol {topic.volume}</div>
+                    <div className="mono" style={{ fontSize: '11px', backgroundColor: '#0d1117', border: '1px solid #30363d', padding: '4px 8px', borderRadius: '6px', color: '#c9d1d9' }}>{topic.velocity} 🔥</div>
+                    <div style={{ fontSize: '11px', backgroundColor: '#0d1117', border: '1px solid #30363d', padding: '4px 8px', borderRadius: '6px', color: topic.sentimentColor }}>{topic.sentiment}</div>
                   </div>
                   <div style={{ marginBottom: '14px' }}>{topic.headlines.slice(0, 2).map(h => (<div key={h.id} style={{ fontSize: '12px', color: '#8b949e', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: '4px' }}>• {h.title}</div>))}</div>
                   <button onClick={() => openDetail(topic)} style={{ width: '100%', backgroundColor: '#fff', color: '#000', padding: '10px', borderRadius: '10px', fontWeight: '700', fontSize: '12px', border: 'none', cursor: 'pointer' }}>Cek Sekarang</button>
                 </div>
               ))}
             </div>
+
             {showDetail && selectedTopic && (
               <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 50, display: 'flex', justifyContent: 'center', padding: '20px', overflowY: 'auto' }}>
-                <div style={{ width: '100%', maxWidth: '1100px', backgroundColor: '#0d1117', border: '1px solid #30363d', borderRadius: '16px' }}>
+                <div style={{ width: '100%', maxWidth: '800px', backgroundColor: '#0d1117', border: '1px solid #30363d', borderRadius: '16px' }}>
                   <div style={{ padding: '16px 20px', borderBottom: '1px solid #30363d', display: 'flex', justifyContent: 'space-between' }}>
                     <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                       <button onClick={() => setShowDetail(false)} style={{ backgroundColor: '#21262d', border: '1px solid #30363d', color: '#fff', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' }}>← Kembali</button>
@@ -228,39 +225,136 @@ export default function AgoraVadaPortal() {
                     </div>
                     <button onClick={() => setShowDetail(false)} style={{ background: 'none', border: 'none', color: '#8b949e', fontSize: '20px', cursor: 'pointer' }}>×</button>
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1.7fr 1fr' }}>
-                    <div style={{ borderRight: '1px solid #30363d', padding: '16px' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '60vh', overflowY: 'auto' }}>
-                        {selectedTopic.headlines.map(h => (
-                          <div key={h.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px', borderRadius: '10px', backgroundColor: selectedHeadlines.find(x => x.id === h.id) ? '#1f6feb20' : '#161b22', border: `1px solid ${selectedHeadlines.find(x => x.id === h.id) ? '#1f6feb' : '#30363d'}` }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, cursor: 'pointer' }} onClick={() => toggleHeadline(h)}>
-                              <input type="checkbox" checked={!!selectedHeadlines.find(x => x.id === h.id)} readOnly />
-                              <div style={{ flex: 1 }}>
-                                <div style={{ fontSize: '10px' }} className="mono">{h.source} • {h.time}</div>
-                                <div style={{ fontWeight: '600', fontSize: '13px' }}>{h.title}</div>
-                              </div>
+                  
+                  <div style={{ padding: '16px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '65vh', overflowY: 'auto' }}>
+                      {selectedTopic.headlines.map(h => {
+                        const isSelected = selectedHeadline && selectedHeadline.id === h.id;
+                        return (
+                          <div key={h.id} onClick={() => setSelectedHeadline(h)} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px', borderRadius: '10px', backgroundColor: isSelected ? '#1f6feb20' : '#161b22', border: `1px solid ${isSelected ? '#1f6feb' : '#30363d'}`, cursor: 'pointer' }}>
+                            <input type="radio" name="singleHeadline" checked={isSelected} readOnly style={{ accentColor: '#1f6feb' }} />
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontSize: '10px' }} className="mono">{h.source} • {h.time}</div>
+                              <div style={{ fontWeight: '600', fontSize: '13px', marginTop: '2px' }}>{h.title}</div>
+                              <div style={{ fontSize: '11px', color: '#8b949e', marginTop: '2px' }}>{h.summary}</div>
                             </div>
                             <a href={h.url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ width: '36px', height: '36px', backgroundColor: '#0d1117', border: '1px solid #30363d', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', fontSize: '16px', cursor: 'pointer' }}>🔗</a>
                           </div>
-                        ))}
-                      </div>
-                    </div>
-                    <div style={{ padding: '16px', backgroundColor: '#161b22' }}>
-                      <div style={{ fontSize: '11px', fontWeight: '700', color: '#a371f7', marginBottom: '10px' }}>🤖 AI HOOK</div>
-                      {selectedTopic.hooks.map((hook, i) => (<div key={i} style={{ padding: '10px', backgroundColor: '#0d1117', border: '1px solid #30363d', borderRadius: '8px', marginBottom: '8px', fontSize: '12px' }}>{hook}</div>))}
+                        );
+                      })}
+                      {selectedTopic.headlines.length === 0 && <div style={{ padding: '40px', textAlign: 'center', color: '#8b949e', fontSize: '13px' }}>Tidak ada berita dalam {trendTimeFilter} terakhir.</div>}
                     </div>
                   </div>
-                  <div style={{ padding: '12px 16px', borderTop: '1px solid #30363d', backgroundColor: '#161b22', display: 'flex', justifyContent: 'space-between' }}>
-                    <div className="mono" style={{ fontSize: '11px', color: '#8b949e' }}>{selectedHeadlines.length} dipilih</div>
-                    <button onClick={handleJadikanBerita} style={{ padding: '10px 16px', backgroundColor: '#1f6feb', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: '700', cursor: 'pointer', fontSize: '12px' }}>→ Jadikan Berita</button>
+
+                  <div style={{ padding: '12px 16px', borderTop: '1px solid #30363d', backgroundColor: '#161b22', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottomLeftRadius: '16px', borderBottomRightRadius: '16px' }}>
+                    <div className="mono" style={{ fontSize: '11px', color: '#8b949e' }}>
+                      {selectedHeadline ? `Dipilih: ${selectedHeadline.source}` : 'Pilih 1 berita'}
+                    </div>
+                    <button onClick={handleJadikanBerita} disabled={!selectedHeadline} style={{ padding: '10px 16px', backgroundColor: selectedHeadline ? '#1f6feb' : '#30363d', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: '700', cursor: selectedHeadline ? 'pointer' : 'not-allowed', fontSize: '12px' }}>→ Jadikan Berita</button>
                   </div>
                 </div>
               </div>
             )}
           </div>
         )}
-        {currentPage !== 0 && (<div style={{ backgroundColor: '#161b22', border: '1px solid #30363d', borderRadius: '16px', padding: '24px' }}><p style={{color:'#8b949e', fontSize:'12px'}}>Editor Agora Vada - lanjutkan flow lama</p><button onClick={()=>setCurrentPage(0)} style={{marginTop:'12px', padding:'8px 12px', backgroundColor:'#21262d', border:'1px solid #30363d', color:'#fff', borderRadius:'8px'}}>← Kembali ke Trend Radar</button></div>)}
+
+        {currentPage !== 0 && (<div style={{ backgroundColor: '#161b22', border: '1px solid #30363d', borderRadius: '16px', padding: '24px' }}><p style={{color:'#8b949e', fontSize:'12px'}}>Editor Agora Vada</p><button onClick={()=>setCurrentPage(0)} style={{marginTop:'12px', padding:'8px 12px', backgroundColor:'#21262d', border:'1px solid #30363d', color:'#fff', borderRadius:'8px', cursor:'pointer'}}>← Kembali ke Trend Radar</button></div>)}
       </div>
     </div>
   );
+}
+
+==============================
+FILE 2: app/api/trend-radar/route.js
+==============================
+import { NextResponse } from 'next/server';
+import * as cheerio from 'cheerio';
+export const dynamic = 'force-dynamic';
+const TOPIC_QUERIES = {
+  jakarta: 'Jakarta',
+  nasional: 'berita nasional Indonesia',
+  bencana: 'bencana alam OR gempa bumi OR banjir',
+  pdip: 'PDI Perjuangan',
+  megawati: 'Megawati Soekarnoputri',
+  puan: 'Puan Maharani',
+};
+const TOPIC_META = {
+  jakarta: { title: 'Jakarta', icon: '🏙️' },
+  nasional: { title: 'Berita Nasional', icon: '📰' },
+  bencana: { title: 'Bencana Terkini', icon: '🌋' },
+  pdip: { title: 'PDI Perjuangan', icon: '🐂' },
+  megawati: { title: 'Megawati Soekarnoputri', icon: '👩‍🦳' },
+  puan: { title: 'Puan Maharani', icon: '👩‍💼' },
+};
+function getCleanLink(raw) {
+  try {
+    if (!raw) return '#';
+    if (typeof raw === 'string' && raw.startsWith('http')) return raw.replace(/&amp;/g, '&').trim();
+    const str = JSON.stringify(raw);
+    const m = str.match(/https?:\/\/[^\s"'\\]+/);
+    if (m) return m[0].replace(/\\"/g, '').replace(/&amp;/g, '&').replace(/["']+$/, '');
+  } catch {}
+  return '#';
+}
+function formatTimeAgo(minutes) {
+  if (minutes < 60) return `${minutes}m lalu`;
+  if (minutes < 1440) return `${Math.floor(minutes/60)}j lalu`;
+  return `${Math.floor(minutes/1440)}h lalu`;
+}
+async function fetchGoogleNewsRSS(topicId, hours) {
+  const baseQuery = TOPIC_QUERIES[topicId] || topicId;
+  let whenClause = ` when:${hours}h`;
+  const q = `${baseQuery}${whenClause}`;
+  const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=id&gl=ID&ceid=ID:id`;
+  try {
+    const res = await fetch(rssUrl, { headers: { 'User-Agent': 'Mozilla/5.0' }, next: { revalidate: 60 }, cache: 'no-store' });
+    if (!res.ok) throw new Error('RSS fail');
+    const xml = await res.text();
+    const $ = cheerio.load(xml, { xmlMode: true });
+    const items = [];
+    $('item').each((i, el) => {
+      const titleFull = $(el).find('title').text() || '';
+      const linkRaw = $(el).find('link').text() || '';
+      const pubDateStr = $(el).find('pubDate').text() || '';
+      const source = $(el).find('source').text() || titleFull.split(' - ').pop() || 'Google News';
+      const description = $(el).find('description').text() || '';
+      const pubDate = new Date(pubDateStr);
+      const minutesAgo = isNaN(pubDate.getTime()) ? 9999 : Math.floor((Date.now() - pubDate.getTime()) / 60000);
+      if (hours && minutesAgo > hours * 60 + 60) return;
+      const cleanTitle = titleFull.split(' - ')[0] || titleFull;
+      items.push({
+        id: i + 1, source: source.trim().slice(0, 20), time: formatTimeAgo(minutesAgo), minutesAgo, pubDate: pubDateStr,
+        title: cleanTitle, summary: cheerio.load(description).text().slice(0, 120), url: getCleanLink(linkRaw), link: getCleanLink(linkRaw),
+      });
+    });
+    return items;
+  } catch (e) { return []; }
+}
+async function fetchBMKG() {
+  try {
+    const res = await fetch('https://data.bmkg.go.id/DataMKG/TEWS/autogempa.json', { next: { revalidate: 60 } });
+    const json = await res.json(); const info = json?.Infogempa?.gempa; if (!info) return null;
+    return { id: 999, source: 'BMKG', time: 'Baru saja', minutesAgo: 1, title: `Gempa M ${info.Magnitude} ${info.Wilayah}`, summary: `${info.Kedalaman} • ${info.Jam} WIB`, url: 'https://www.bmkg.go.id', link: 'https://www.bmkg.go.id', isBMKG: true };
+  } catch { return null; }
+}
+export async function GET(req) {
+  const { searchParams } = new URL(req.url);
+  const filterRaw = searchParams.get('filter') || '1 Jam';
+  let hours = 1;
+  if (filterRaw.includes('1')) hours = 1; else if (filterRaw.includes('6')) hours = 6; else if (filterRaw.includes('24')) hours = 24;
+  const maxMinutes = hours * 60;
+  const bmkgLive = await fetchBMKG();
+  const topicIds = Object.keys(TOPIC_QUERIES);
+  const results = await Promise.all(topicIds.map(async (id) => {
+    let headlines = await fetchGoogleNewsRSS(id, hours);
+    if (id === 'bencana' && bmkgLive && bmkgLive.minutesAgo <= maxMinutes) headlines = [bmkgLive, ...headlines.filter(h => !h.isBMKG)];
+    if (headlines.length === 0 && id === 'bencana' && bmkgLive) headlines = [bmkgLive];
+    return {
+      id, title: TOPIC_META[id].title, icon: TOPIC_META[id].icon, volume: `${headlines.length} berita`,
+      velocity: `+${Math.floor(Math.random()*60)+5}%`, sentiment: id === 'pdip' ? 'Negatif 72%' : id === 'bencana' ? 'Negatif' : id === 'puan' ? 'Positif 54%' : 'Campur',
+      sentimentColor: id === 'bencana' || id === 'pdip' ? '#ef4444' : id === 'puan' ? '#22c55e' : '#eab308',
+      lastUpdate: `dalam ${hours} jam terakhir`, headlines: headlines,
+    };
+  }));
+  return NextResponse.json({ success: true, status: 'success', filter: filterRaw, hours, maxMinutes, lastSync: new Date().toISOString(), topics: results });
 }
