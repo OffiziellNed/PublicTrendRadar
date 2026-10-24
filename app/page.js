@@ -1,7 +1,6 @@
 "use client";
 import React, { useState, useRef, useEffect } from 'react';
 
-// FIX FOR VERCEL: Jangan prerender halaman canvas ini
 export const dynamic = 'force-dynamic';
 
 export default function AgoraVadaPortal() {
@@ -57,50 +56,61 @@ export default function AgoraVadaPortal() {
     {
       id: 'jakarta', title: 'Jakarta', icon: '🏙️', volume: '89/jam', velocity: '+45%', sentiment: 'Campur', sentimentColor: '#eab308', hot: false, lastUpdate: '2 menit lalu',
       headlines: [
-        { id:1, source:'DETIK', time:'12m lalu', sentiment:'neg', title:'Banjir Rob Pluit, Pompa Ancol Tak Berfungsi Maksimal', summary:'Ketinggian air 60cm di Muara Angke, warga evakuasi mandiri.', url:'https://news.detik.com/jakarta', tags:['#Banjir','#Pluit'] },
-        { id:2, source:'KOMPAS', time:'23m lalu', sentiment:'neu', title:'Demo Ojol di Balai Kota Tuntut Aturan Tarif Baru', summary:'Ratusan driver ojol gelar aksi di depan Balai Kota DKI.', url:'https://megapolitan.kompas.com', tags:['#Ojol','#BalaiKota'] },
-        { id:3, source:'TEMPO', time:'41m lalu', sentiment:'neg', title:'Kebijakan PSN Jakarta Utara Disoal Warga', summary:'Warga Marunda protes soal penggusuran.', url:'https://tempo.co/jakarta', tags:['#PSN','#Gusuran'] },
+        { id:1, source:'DETIK', time:'12m lalu', minutesAgo:12, sentiment:'neg', title:'Banjir Rob Pluit, Pompa Ancol Tak Berfungsi Maksimal', summary:'Ketinggian air 60cm di Muara Angke.', url:'https://news.detik.com/jakarta/banjir-rob-pluit', tags:['#Banjir'] },
+        { id:2, source:'KOMPAS', time:'45m lalu', minutesAgo:45, sentiment:'neu', title:'Demo Ojol di Balai Kota Tuntut Aturan Tarif Baru', summary:'Ratusan driver ojol aksi.', url:'https://megapolitan.kompas.com/read/2024/demo-ojol', tags:['#Ojol'] },
+        { id:3, source:'TEMPO', time:'3j lalu', minutesAgo:180, sentiment:'neg', title:'Kebijakan PSN Jakarta Utara Disoal Warga', summary:'Warga Marunda protes.', url:'https://tempo.co/jakarta/psn', tags:['#PSN'] },
+        { id:4, source:'CNN', time:'8j lalu', minutesAgo:480, sentiment:'neg', title:'Macet Parah Sudirman - Thamrin Akibat Proyek MRT', summary:'Antrean kendaraan mengular.', url:'https://cnnindonesia.com/jakarta/macet-sudirman', tags:['#Macet'] },
       ],
-      hooks: ['URGENT: Pluit Tenggelam Lagi, Warga Tanya Janji Pemprov Mana?', 'HUMAN: Cerita Ibu di Pluit: Air Masuk Jam 2 Pagi', 'INVESTIGATIVE: Kenapa Pompa Ancol Gagal? Data BMKG vs PUPR'],
-      keywords: [{k:'#BanjirRob', v:'↑210%'}, {k:'#BalaiKota', v:'↑45%'}, {k:'#Drainase', v:'↑18%'}]
+      hooks: ['URGENT: Pluit Tenggelam Lagi, Warga Tanya Janji Pemprov Mana?', 'HUMAN: Cerita Ibu di Pluit: Air Masuk Jam 2 Pagi', 'INVESTIGATIVE: Kenapa Pompa Ancol Gagal?'],
+      keywords: [{k:'#BanjirRob', v:'↑210%'}, {k:'#BalaiKota', v:'↑45%'}]
     },
     {
       id: 'nasional', title: 'Berita Nasional', icon: '📰', volume: '210/jam', velocity: '+12%', sentiment: 'Netral', sentimentColor: '#8b949e', hot: false, lastUpdate: '5 menit lalu',
       headlines: [
-        { id:1, source:'CNN', time:'8m lalu', sentiment:'neu', title:'APBN 2025 Fokus ke Makan Bergizi Gratis dan IKN', summary:'Menkeu paparkan alokasi anggaran.', url:'https://cnnindonesia.com', tags:['#APBN'] },
-        { id:2, source:'KOMPAS', time:'18m lalu', sentiment:'neu', title:'KPU Siapkan Tahapan Pilkada Serentak', summary:'Jadwal dan logistik mulai disiapkan.', url:'https://nasional.kompas.com', tags:['#Pilkada'] },
+        { id:1, source:'CNN', time:'20m lalu', minutesAgo:20, sentiment:'neu', title:'APBN 2025 Fokus ke Makan Bergizi Gratis dan IKN', summary:'Menkeu paparkan alokasi.', url:'https://cnnindonesia.com/nasional/apbn-2025', tags:['#APBN'] },
+        { id:2, source:'KOMPAS', time:'5j lalu', minutesAgo:300, sentiment:'neu', title:'KPU Siapkan Tahapan Pilkada Serentak', summary:'Jadwal logistik disiapkan.', url:'https://nasional.kompas.com/pilkada', tags:['#Pilkada'] },
+        { id:3, source:'TEMPO', time:'18j lalu', minutesAgo:1080, sentiment:'neu', title:'Presiden Resmikan Tol Baru di Jawa Tengah', summary:'Tol sepanjang 40km.', url:'https://tempo.co/nasional/tol-baru', tags:['#Tol'] },
       ],
-      hooks: ['APBN 2025: Janji Makan Gratis vs Utang Negara', 'Pilkada Serentak: Siapa Untung?', 'Data APBN Bocor, Benarkah Defisit Membengkak?'],
-      keywords: [{k:'#APBN2025', v:'↑120%'}, {k:'#Pilkada', v:'↑80%'}]
+      hooks: ['APBN 2025: Janji Makan Gratis vs Utang Negara', 'Pilkada Serentak: Siapa Untung?'],
+      keywords: [{k:'#APBN2025', v:'↑120%'}]
     },
     {
       id: 'bencana', title: 'Bencana Terkini', icon: '🌋', volume: '34/jam', velocity: '+230%', sentiment: 'Negatif', sentimentColor: '#ef4444', hot: true, lastUpdate: '1 menit lalu',
       headlines: [
-        { id:1, source:'BMKG', time:'3m lalu', sentiment:'neg', title:'Gempa M 5.2 Halmahera, Kedalaman 10km - Tidak Berpotensi Tsunami', summary:'Gempa dirasakan hingga Ternate.', url:'https://bmkg.go.id', tags:['#Gempa','#Halmahera'], isBMKG:true },
-        { id:2, source:'BNPB', time:'15m lalu', sentiment:'neg', title:'BNPB: Banjir Bandang di Wamena, 2 Warga Hilang', summary:'Hujan deras picu banjir.', url:'https://bnpb.go.id', tags:['#BanjirBandang'] },
+        { id:1, source:'BMKG', time:'3m lalu', minutesAgo:3, sentiment:'neg', title:'Gempa M 5.2 Halmahera, Kedalaman 10km - Tidak Berpotensi Tsunami', summary:'Dirasakan hingga Ternate.', url:'https://www.bmkg.go.id/gempabumi/gempabumi-dirasakan.bmkg', tags:['#Gempa'], isBMKG:true },
+        { id:2, source:'BNPB', time:'25m lalu', minutesAgo:25, sentiment:'neg', title:'BNPB: Banjir Bandang di Wamena, 2 Warga Hilang', summary:'Hujan deras picu banjir.', url:'https://bnpb.go.id/berita/banjir-wamena', tags:['#BanjirBandang'] },
+        { id:3, source:'BMKG', time:'2j lalu', minutesAgo:120, sentiment:'neu', title:'Peringatan Cuaca Ekstrem Jawa-Bali 24 Jam', summary:'Potensi hujan lebat.', url:'https://www.bmkg.go.id/cuaca/cuaca-ekstrem', tags:['#CuacaEkstrem'] },
+        { id:4, source:'BASARNAS', time:'10j lalu', minutesAgo:600, sentiment:'neg', title:'Longsor di Puncak Bogor, Jalur Tertutup', summary:'Evakuasi masih berlangsung.', url:'https://basarnas.go.id/longsor-puncak', tags:['#Longsor'] },
       ],
-      hooks: ['BREAKING: Gempa Halmahera 5.2 - Warga Panik', 'BMKG Warning: Jawa-Bali Siaga Cuaca Ekstrem', 'BNPB Lambat? Data Bencana vs Respon'],
-      keywords: [{k:'#GempaHalmahera', v:'↑450%'}, {k:'#CuacaEkstrem', v:'↑200%'}]
+      hooks: ['BREAKING: Gempa Halmahera 5.2', 'BMKG Warning Jawa-Bali', 'BNPB Lambat?'],
+      keywords: [{k:'#GempaHalmahera', v:'↑450%'}]
     },
     {
       id: 'pdip', title: 'PDI Perjuangan', icon: '🐂', volume: '67/jam', velocity: '+89%', sentiment: 'Negatif 72%', sentimentColor: '#ef4444', hot: true, lastUpdate: '4 menit lalu',
       headlines: [
-        { id:1, source:'TEMPO', time:'20m lalu', sentiment:'neg', title:'Isu Konflik Internal PDIP Menguat Jelang Rakernas', summary:'Sumber internal sebut ada perbedaan sikap.', url:'https://tempo.co/politik', tags:['#PDIP','#Rakernas'] },
-        { id:2, source:'DETIK', time:'55m lalu', sentiment:'neg', title:'Hasto Tanggapi Isu Perpecahan: Solid!', summary:'Sekjen PDIP bantah isu pecah.', url:'https://detik.com', tags:['#Hasto'] },
+        { id:1, source:'TEMPO', time:'20m lalu', minutesAgo:20, sentiment:'neg', title:'Isu Konflik Internal PDIP Menguat Jelang Rakernas', summary:'Sumber internal sebut perbedaan sikap.', url:'https://tempo.co/politik/konflik-pdip', tags:['#PDIP'] },
+        { id:2, source:'DETIK', time:'55m lalu', minutesAgo:55, sentiment:'neg', title:'Hasto Tanggapi Isu Perpecahan: Solid!', summary:'Sekjen bantah pecah.', url:'https://news.detik.com/politik/hasto-solid', tags:['#Hasto'] },
+        { id:3, source:'KOMPAS', time:'7j lalu', minutesAgo:420, sentiment:'neg', title:'PDIP Evaluasi Kinerja Legislator di Daerah', summary:'Evaluasi jelang 2029.', url:'https://nasional.kompas.com/pdip-evaluasi', tags:['#PDIP'] },
       ],
-      hooks: ['PDIP Retak? Sinyal Konflik Jelang 2029', 'Hasto vs Realita: Solid di Luar, Gejolak di Dalam?', 'Rakernas PDIP: Panggung Rekonsiliasi?'],
-      keywords: [{k:'#RakernasPDIP', v:'↑89%'}, {k:'#Hasto', v:'↑34%'}]
+      hooks: ['PDIP Retak? Sinyal Konflik Jelang 2029', 'Hasto vs Realita'],
+      keywords: [{k:'#RakernasPDIP', v:'↑89%'}]
     },
     {
-      id: 'megawati', title: 'Megawati', icon: '👩‍🦳', volume: '41/jam', velocity: '+15%', sentiment: 'Campur', sentimentColor: '#eab308', hot: false, lastUpdate: '12 menit lalu',
-      headlines: [{ id:1, source:'KOMPAS', time:'1j lalu', sentiment:'neu', title:'Pidato Megawati di Rakernas: Ingatkan Kader Jangan Lupa Akar Rumput', summary:'Megawati tekankan ideologi.', url:'https://kompas.com', tags:['#Megawati'] }],
-      hooks: ['Megawati: Jangan Jadi Kader Kutu Loncat', 'Pesan Megawati: Akar Rumput vs Elit?'],
+      id: 'megawati', title: 'Megawati Soekarnoputri', icon: '👩‍🦳', volume: '41/jam', velocity: '+15%', sentiment: 'Campur', sentimentColor: '#eab308', hot: false, lastUpdate: '12 menit lalu',
+      headlines: [
+        { id:1, source:'KOMPAS', time:'40m lalu', minutesAgo:40, sentiment:'neu', title:'Pidato Megawati Soekarnoputri di Rakernas: Ingatkan Kader Jangan Lupa Akar Rumput', summary:'Megawati tekankan ideologi.', url:'https://nasional.kompas.com/megawati-rakernas', tags:['#Megawati'] },
+        { id:2, source:'CNN', time:'6j lalu', minutesAgo:360, sentiment:'neu', title:'Megawati Soekarnoputri Bertemu Relawan di Jakarta', summary:'Pertemuan tertutup.', url:'https://cnnindonesia.com/megawati-relawan', tags:['#Megawati'] },
+      ],
+      hooks: ['Megawati Soekarnoputri: Jangan Jadi Kader Kutu Loncat', 'Pesan Megawati: Akar Rumput vs Elit?'],
       keywords: [{k:'#Megawati', v:'↑15%'}]
     },
     {
       id: 'puan', title: 'Puan Maharani', icon: '👩‍💼', volume: '28/jam', velocity: '+5%', sentiment: 'Positif 54%', sentimentColor: '#22c55e', hot: false, lastUpdate: '18 menit lalu',
-      headlines: [{ id:1, source:'DPR RI', time:'2j lalu', sentiment:'pos', title:'Puan Pimpin Sidang Paripurna, Sahkan 3 RUU', summary:'Sidang berjalan kondusif.', url:'https://dpr.go.id', tags:['#DPR','#Puan'], hasYT:true }],
-      hooks: ['Puan di DPR: Politisi atau Negarawan?', '3 RUU Disahkan, Apa Dampak ke Rakyat Kecil?'],
+      headlines: [
+        { id:1, source:'DPR RI', time:'2j lalu', minutesAgo:120, sentiment:'pos', title:'Puan Maharani Pimpin Sidang Paripurna, Sahkan 3 RUU', summary:'Sidang kondusif.', url:'https://www.dpr.go.id/berita/puan-sahkan-ruu', tags:['#DPR'], hasYT:true },
+        { id:2, source:'DETIK', time:'9j lalu', minutesAgo:540, sentiment:'pos', title:'Puan Maharani Tinjau Program Makan Gratis di Solo', summary:'Tinjau dapur umum.', url:'https://news.detik.com/puan-makan-gratis', tags:['#Puan'] },
+      ],
+      hooks: ['Puan di DPR: Politisi atau Negarawan?', '3 RUU Disahkan, Apa Dampak?'],
       keywords: [{k:'#PuanMaharani', v:'↑5%'}]
     },
   ]);
@@ -119,20 +129,41 @@ export default function AgoraVadaPortal() {
     img.src = imageUrl;
   }, [imageUrl]);
 
+  // SCRAPING LOGIC SEPERTI YANG LAMA - FILTER BY TIME
   useEffect(() => {
     if (currentPage !== 0) return;
     const fetchRadar = async () => {
       setTrendLoading(true);
       try {
-        const res = await fetch(`/api/trend-radar?filter=${encodeURIComponent(trendTimeFilter)}`);
+        const res = await fetch(`/api/trend-radar?filter=${encodeURIComponent(trendTimeFilter)}`, { cache: 'no-store' });
         const data = await res.json();
-        if (data?.topics?.length) setTrendTopics(data.topics);
-      } catch (e) { console.log('radar offline, pakai mock'); }
+        if (data?.topics?.length) {
+          // Filter di frontend juga untuk memastikan sesuai jam yang dipilih (seperti kode lama)
+          const filtered = data.topics.map(topic => {
+            let maxMinutes = 99999;
+            if (trendTimeFilter === '1 Jam') maxMinutes = 60;
+            else if (trendTimeFilter === '6 Jam') maxMinutes = 360;
+            else if (trendTimeFilter === '24 Jam') maxMinutes = 1440;
+            
+            const filteredHeadlines = topic.headlines.filter(h => (h.minutesAgo || 0) <= maxMinutes);
+            return { ...topic, headlines: filteredHeadlines.length ? filteredHeadlines : topic.headlines.slice(0,1), volume: `${filteredHeadlines.length || topic.headlines.length} berita` };
+          });
+          setTrendTopics(filtered);
+        }
+      } catch (e) { console.log('radar offline, pakai mock filtered', e); 
+        // Fallback filter mock lokal
+        let maxMinutes = 99999;
+        if (trendTimeFilter === '1 Jam') maxMinutes = 60;
+        else if (trendTimeFilter === '6 Jam') maxMinutes = 360;
+        else if (trendTimeFilter === '24 Jam') maxMinutes = 1440;
+        setTrendTopics(prev => prev.map(t => {
+          const fh = t.headlines.filter(h => h.minutesAgo <= maxMinutes);
+          return { ...t, headlines: fh.length ? fh : [] };
+        }));
+      }
       finally { setTrendLoading(false); }
     };
     fetchRadar();
-    const iv = setInterval(fetchRadar, 60000);
-    return () => clearInterval(iv);
   }, [currentPage, trendTimeFilter]);
 
   const handleFormat = (command, value = null) => {
@@ -145,15 +176,8 @@ export default function AgoraVadaPortal() {
   const renderRichText = (ctx, htmlString, x, y, maxWidth, lineHeight, baseFontSize, align = 'left') => {
     if (!htmlString || typeof document === 'undefined') return;
     ctx.textBaseline = 'top';
-    // FIXED REGEX - ini yang bikin build fail kemarin
-    let cleanHTML = htmlString
-      .replace(/<div[^>]*><br><\/div>/gi, '\n')
-      .replace(/<div[^>]*>/gi, '\n')
-      .replace(/<\/div>/gi, '')
-      .replace(/<br\s*\/?>/gi, '\n');
-
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = cleanHTML;
+    let cleanHTML = htmlString.replace(/<div[^>]*><br><\/div>/gi, '\n').replace(/<div[^>]*>/gi, '\n').replace(/<\/div>/gi, '').replace(/<br\s*\/?>/gi, '\n');
+    const tempDiv = document.createElement('div'); tempDiv.innerHTML = cleanHTML;
     let wordsWithContext = [];
     const extract = (node, cur) => {
       if (node.nodeType === 3) {
@@ -170,13 +194,11 @@ export default function AgoraVadaPortal() {
       }
     };
     extract(tempDiv, { color: '#FFFFFF', isItalic: false });
-
     let lines = [], curLine = [], curW = 0;
     const baseF = templateMode === 'agentlondo' ? 'IBMPlexMono-SemiBold' : 'PoppinsSemiBold';
     const italicF = templateMode === 'agentlondo' ? 'IBMPlexMono-SemiBoldItalic' : 'PoppinsSemiBoldItalic';
     ctx.font = baseFontSize + 'px ' + baseF + ', sans-serif';
     const spW = ctx.measureText(' ').width;
-
     wordsWithContext.forEach(item => {
       if (item.isNewline) { lines.push(curLine); curLine = []; curW = 0; }
       else {
@@ -188,7 +210,6 @@ export default function AgoraVadaPortal() {
       }
     });
     if (curLine.length) lines.push(curLine);
-
     let curY = y;
     lines.forEach((lineArr) => {
       let curX = x;
@@ -205,109 +226,43 @@ export default function AgoraVadaPortal() {
 
   const renderCanvas = (ctx, canvas, showMarginGuide = true) => {
     if (!ctx || !canvas) return;
-    ctx.fillStyle = '#111827';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    if (loadedBgImg) {
-      const dw = loadedBgImg.width * imgScale;
-      const dh = loadedBgImg.height * imgScale;
-      ctx.drawImage(loadedBgImg, imgX, imgY, dw, dh);
-    }
+    ctx.fillStyle = '#111827'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    if (loadedBgImg) { const dw = loadedBgImg.width * imgScale; const dh = loadedBgImg.height * imgScale; ctx.drawImage(loadedBgImg, imgX, imgY, dw, dh); }
     if (templateImgObj) ctx.drawImage(templateImgObj, 0, 0, canvas.width, canvas.height);
-    if (showMarginGuide) {
-      ctx.save();
-      ctx.strokeStyle = 'rgba(139,148,158,0.5)';
-      ctx.setLineDash([10, 8]);
-      ctx.lineWidth = 1.5;
-      ctx.strokeRect(MARGIN_PX, MARGIN_PX, canvas.width - MARGIN_PX * 2, canvas.height - MARGIN_PX * 2);
-      ctx.restore();
-    }
+    if (showMarginGuide) { ctx.save(); ctx.strokeStyle = 'rgba(139,148,158,0.5)'; ctx.setLineDash([10, 8]); ctx.lineWidth = 1.5; ctx.strokeRect(MARGIN_PX, MARGIN_PX, canvas.width - MARGIN_PX * 2, canvas.height - MARGIN_PX * 2); ctx.restore(); }
     const lh = ukuranFont * jarakBaris;
     const clampedX = Math.max(MARGIN_PX, Math.min(teksX, 1080 - MARGIN_PX - 100));
     const clampedY = Math.max(MARGIN_PX, Math.min(teksY, 1350 - MARGIN_PX - 100));
-    const aw = 1080 - clampedX - MARGIN_PX;
-    const mw = Math.max(100, Math.min(950, aw));
+    const aw = 1080 - clampedX - MARGIN_PX; const mw = Math.max(100, Math.min(950, aw));
     renderRichText(ctx, judulHtml, clampedX, clampedY, mw, lh, ukuranFont, teksAlign);
-    if (sumberBerita) {
-      ctx.fillStyle = sumberColor || '#FFFFFF';
-      const sf = templateMode === 'agentlondo' ? 'IBMPlexMono-SemiBoldItalic' : 'PoppinsSemiBoldItalic';
-      ctx.font = ukuranFontSumber + 'px ' + sf + ', sans-serif';
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'top';
-      ctx.fillText(sumberBerita, sumberX, sumberY);
-    }
+    if (sumberBerita) { ctx.fillStyle = sumberColor || '#FFFFFF'; const sf = templateMode === 'agentlondo' ? 'IBMPlexMono-SemiBoldItalic' : 'PoppinsSemiBoldItalic'; ctx.font = ukuranFontSumber + 'px ' + sf + ', sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText(sumberBerita, sumberX, sumberY); }
   };
 
   useEffect(() => {
     if (currentPage !== 3) return;
-    const c = canvasRef.current;
-    if (!c) return;
-    const ctx = c.getContext('2d');
-    if (ctx) renderCanvas(ctx, c, true);
+    const c = canvasRef.current; if (!c) return;
+    const ctx = c.getContext('2d'); if (ctx) renderCanvas(ctx, c, true);
   }, [currentPage, loadedBgImg, templateImgObj, imgX, imgY, imgScale, teksX, teksY, ukuranFont, jarakBaris, sumberX, sumberY, ukuranFontSumber, judulHtml, sumberBerita, sumberColor, templateMode, teksAlign]);
 
-  const handleMouseDown = (e) => {
-    setIsDragging(true);
-    const cx = e.clientX || e.touches?.[0]?.clientX;
-    const cy = e.clientY || e.touches?.[0]?.clientY;
-    setDragStart({ x: cx - imgX, y: cy - imgY });
-  };
-  const handleMouseMove = (e) => {
-    if (!isDragging) return;
-    const cx = e.clientX || e.touches?.[0]?.clientX;
-    const cy = e.clientY || e.touches?.[0]?.clientY;
-    setImgX(cx - dragStart.x);
-    setImgY(cy - dragStart.y);
-  };
+  const handleMouseDown = (e) => { setIsDragging(true); const cx = e.clientX || e.touches?.[0]?.clientX; const cy = e.clientY || e.touches?.[0]?.clientY; setDragStart({ x: cx - imgX, y: cy - imgY }); };
+  const handleMouseMove = (e) => { if (!isDragging) return; const cx = e.clientX || e.touches?.[0]?.clientX; const cy = e.clientY || e.touches?.[0]?.clientY; setImgX(cx - dragStart.x); setImgY(cy - dragStart.y); };
   const handleMouseUp = () => setIsDragging(false);
-  const handleWheel = (e) => {
-    e.preventDefault();
-    const zi = 0.05;
-    if (e.deltaY < 0) setImgScale(p => Math.min(p + zi, 5));
-    else setImgScale(p => Math.max(p - zi, 0.1));
-  };
+  const handleWheel = (e) => { e.preventDefault(); const zi = 0.05; if (e.deltaY < 0) setImgScale(p => Math.min(p + zi, 5)); else setImgScale(p => Math.max(p - zi, 0.1)); };
   const handleUploadFoto = (e) => { const file = e.target.files[0]; if (file) setImageUrl(URL.createObjectURL(file)); };
-  const handleUploadTemplate = (e) => {
-    const file = e.target.files[0]; if (!file) return;
-    const img = new Image(); const ou = URL.createObjectURL(file);
-    img.onload = () => {
-      if (img.width !== 1080 || img.height !== 1350) {
-        if (!confirm('Ukuran template ' + img.width + ' x ' + img.height + ', bukan 1080 x 1350. Tetap pakai?')) { URL.revokeObjectURL(ou); return; }
-      }
-      setTemplateImgObj(img);
-    };
-    img.onerror = () => alert('Gagal load template');
-    img.src = ou;
-  };
-  const downloadGambar = () => {
-    const c = canvasRef.current; if (!c) return;
-    const ctx = c.getContext('2d'); if (!ctx) return;
-    renderCanvas(ctx, c, false);
-    const a = document.createElement('a');
-    a.download = 'AgoraVada_Post.jpg';
-    a.href = c.toDataURL("image/jpeg", 0.95);
-    a.click();
-    setTimeout(() => { const cc = canvasRef.current; if (cc) { const cctx = cc.getContext('2d'); if (cctx) renderCanvas(cctx, cc, true); } }, 100);
-  };
+  const handleUploadTemplate = (e) => { const file = e.target.files[0]; if (!file) return; const img = new Image(); const ou = URL.createObjectURL(file); img.onload = () => { if (img.width !== 1080 || img.height !== 1350) { if (!confirm('Ukuran template ' + img.width + ' x ' + img.height + ', bukan 1080 x 1350. Tetap pakai?')) { URL.revokeObjectURL(ou); return; } } setTemplateImgObj(img); }; img.onerror = () => alert('Gagal load template'); img.src = ou; };
+  const downloadGambar = () => { const c = canvasRef.current; if (!c) return; const ctx = c.getContext('2d'); if (!ctx) return; renderCanvas(ctx, c, false); const a = document.createElement('a'); a.download = 'AgoraVada_Post.jpg'; a.href = c.toDataURL("image/jpeg", 0.95); a.click(); setTimeout(() => { const cc = canvasRef.current; if (cc) { const cctx = cc.getContext('2d'); if (cctx) renderCanvas(cctx, cc, true); } }, 100); };
   const handleTapUploadButton = () => {
-    const c = canvasRef.current; if (!c) return;
-    const ctx = c.getContext('2d'); if (!ctx) return;
+    const c = canvasRef.current; if (!c) return; const ctx = c.getContext('2d'); if (!ctx) return;
     renderCanvas(ctx, c, false);
     c.toBlob(blob => {
-      if (!blob) return;
-      const url = URL.createObjectURL(blob);
-      setReviewImageBlob(blob);
-      setReviewImageUrl(url);
-      const tmp = document.createElement('div'); tmp.innerHTML = judulHtml || '';
-      let cap = (tmp.textContent || '').trim();
-      if (sumberBerita) cap += `\n\n${sumberBerita}`;
-      if (!cap.includes('#AgoraVada')) cap += `\n\n#AgoraVada #BeritaTerkini #Info`;
-      setCaptionText(cap.trim());
-      setCurrentPage(4);
+      if (!blob) return; const url = URL.createObjectURL(blob); setReviewImageBlob(blob); setReviewImageUrl(url);
+      const tmp = document.createElement('div'); tmp.innerHTML = judulHtml || ''; let cap = (tmp.textContent || '').trim();
+      if (sumberBerita) cap += `\n\n${sumberBerita}`; if (!cap.includes('#AgoraVada')) cap += `\n\n#AgoraVada #BeritaTerkini #Info`;
+      setCaptionText(cap.trim()); setCurrentPage(4);
     }, 'image/jpeg', 0.92);
   };
   const handlePublish = async () => {
-    if (!reviewImageBlob) return alert('Gambar belum siap');
-    setIsUploading(true);
+    if (!reviewImageBlob) return alert('Gambar belum siap'); setIsUploading(true);
     try {
       const fd = new FormData(); fd.append('file', reviewImageBlob);
       const upRes = await fetch('/api/instagram/upload-image', { method: 'POST', body: fd });
@@ -315,33 +270,26 @@ export default function AgoraVadaPortal() {
       const pubRes = await fetch('/api/instagram/publish', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ imageUrls: [upData.url], caption: captionText }) });
       const pubData = await pubRes.json(); if (!pubRes.ok) throw new Error(pubData.error || JSON.stringify(pubData));
       alert('Berhasil publish IG!'); setCurrentPage(3);
-    } catch (err) { alert('Gagal: ' + err.message); }
-    finally { setIsUploading(false); }
+    } catch (err) { alert('Gagal: ' + err.message); } finally { setIsUploading(false); }
   };
-  const handleCopyPrompt = () => {
-    if (typeof navigator !== 'undefined') {
-      navigator.clipboard.writeText(promptTeks);
-      setIsCopied(true); setTimeout(() => setIsCopied(false), 2000);
-    }
-  };
-
+  const handleCopyPrompt = () => { if (typeof navigator !== 'undefined') { navigator.clipboard.writeText(promptTeks); setIsCopied(true); setTimeout(() => setIsCopied(false), 2000); } };
   const openDetail = (topic) => { setSelectedTopic(topic); setShowDetail(true); setSelectedHeadlines([]); setActiveTab('Headlines'); };
   const toggleHeadline = (h) => { setSelectedHeadlines(prev => prev.find(x => x.id === h.id) ? prev.filter(x => x.id !== h.id) : [...prev, h]); };
   const handleJadikanBerita = () => {
     if (!selectedHeadlines.length) return alert('Pilih minimal 1 berita dulu');
-    const first = selectedHeadlines[0];
-    setUrlBerita(first.url);
-    setSumberBerita(first.source);
-    setPromptTeks(PROMPT_TEMPLATES.homeless + "\n\nKonteks trending: " + selectedTopic.title + " - " + first.title);
-    setCurrentPage(1);
-    setShowDetail(false);
+    const first = selectedHeadlines[0]; setUrlBerita(first.url); setSumberBerita(first.source);
+    setCurrentPage(1); setShowDetail(false);
   };
 
   return (
     <div style={{ width: '100%', minHeight: '100vh', backgroundColor: '#0a0a0f', color: '#fff' }}>
       <style>{`@import url("https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap"); *{font-family:'Geist',sans-serif} .mono{font-family:'Geist Mono',monospace}`}</style>
       <div style={{ width: '100%', maxWidth: currentPage === 0 ? '1280px' : currentPage === 3 ? '950px' : currentPage === 4 ? '900px' : '480px', margin: '0 auto', padding: '20px' }}>
-        <div style={{ textAlign: 'center', marginBottom: '20px' }}><h1 style={{ fontSize: '20px', fontWeight: '800', letterSpacing: '1px' }}>⚡ AGORA VADA</h1></div>
+        
+        {/* JUDUL AGORA VADA - HANYA MUNCUL SELAIN HALAMAN UTAMA */}
+        {currentPage !== 0 && (
+          <div style={{ textAlign: 'center', marginBottom: '20px' }}><h1 style={{ fontSize: '20px', fontWeight: '800', letterSpacing: '1px' }}>⚡ AGORA VADA</h1></div>
+        )}
 
         {currentPage === 0 && (
           <div>
@@ -368,8 +316,8 @@ export default function AgoraVadaPortal() {
                     <div className="mono" style={{ fontSize: '11px', backgroundColor: topic.hot ? '#f8514920' : '#0d1117', border: `1px solid ${topic.hot ? '#f85149' : '#30363d'}`, padding: '4px 8px', borderRadius: '6px', color: topic.hot ? '#f85149' : '#c9d1d9' }}>{topic.velocity} 🔥</div>
                     <div style={{ fontSize: '11px', backgroundColor: '#0d1117', border: '1px solid #30363d', padding: '4px 8px', borderRadius: '6px', color: topic.sentimentColor }}>{topic.sentiment}</div>
                   </div>
-                  <div style={{ marginBottom: '14px' }}>{topic.headlines.slice(0, 2).map(h => (<div key={h.id} style={{ fontSize: '12px', color: '#8b949e', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: '4px' }}>• {h.title}</div>))}</div>
-                  <button onClick={() => openDetail(topic)} style={{ width: '100%', backgroundColor: '#fff', color: '#000', padding: '10px', borderRadius: '10px', fontWeight: '700', fontSize: '12px', border: 'none', cursor: 'pointer' }}>Q Cek Sekarang</button>
+                  <div style={{ marginBottom: '14px' }}>{topic.headlines.slice(0, 2).map(h => (<div key={h.id} style={{ fontSize: '12px', color: '#8b949e', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: '4px' }}>• {h.title} <span className="mono" style={{fontSize:'10px'}}>({h.time})</span></div>))}</div>
+                  <button onClick={() => openDetail(topic)} style={{ width: '100%', backgroundColor: '#fff', color: '#000', padding: '10px', borderRadius: '10px', fontWeight: '700', fontSize: '12px', border: 'none', cursor: 'pointer' }}>Q Cek Sekarang — {topic.headlines.length} berita</button>
                 </div>
               ))}
             </div>
@@ -381,32 +329,41 @@ export default function AgoraVadaPortal() {
                     <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                       <button onClick={() => setShowDetail(false)} style={{ backgroundColor: '#21262d', border: '1px solid #30363d', color: '#fff', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' }}>← Kembali</button>
                       <div style={{ fontWeight: '800' }}>{selectedTopic.icon} {selectedTopic.title}</div>
+                      <div className="mono" style={{ fontSize: '11px', color: '#8b949e' }}>{trendTimeFilter} • {selectedTopic.headlines.length} berita</div>
                     </div>
                     <button onClick={() => setShowDetail(false)} style={{ background: 'none', border: 'none', color: '#8b949e', fontSize: '20px', cursor: 'pointer' }}>×</button>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1.7fr 1fr' }}>
                     <div style={{ borderRight: '1px solid #30363d', padding: '16px' }}>
                       <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-                        {['Headlines', 'Framing', 'Peta'].map(tab => (
-                          <button key={tab} onClick={() => setActiveTab(tab)} style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '12px', border: '1px solid #30363d', backgroundColor: activeTab === tab ? '#fff' : '#161b22', color: activeTab === tab ? '#000' : '#c9d1d9' }}>{tab}</button>
-                        ))}
+                        {['Headlines', 'Framing', 'Peta'].map(tab => (<button key={tab} onClick={() => setActiveTab(tab)} style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '12px', border: '1px solid #30363d', backgroundColor: activeTab === tab ? '#fff' : '#161b22', color: activeTab === tab ? '#000' : '#c9d1d9' }}>{tab}</button>))}
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                         {selectedTopic.headlines.map(h => (
-                          <div key={h.id} style={{ display: 'flex', gap: '10px', padding: '12px', borderRadius: '10px', backgroundColor: selectedHeadlines.find(x => x.id === h.id) ? '#1f6feb20' : '#161b22', border: `1px solid ${selectedHeadlines.find(x => x.id === h.id) ? '#1f6feb' : '#30363d'}`, cursor: 'pointer' }} onClick={() => toggleHeadline(h)}>
-                            <input type="checkbox" checked={!!selectedHeadlines.find(x => x.id === h.id)} readOnly />
-                            <div><div style={{ fontSize: '10px' }} className="mono">{h.source} • {h.time}</div><div style={{ fontWeight: '600', fontSize: '13px' }}>{h.title}</div><div style={{ fontSize: '11px', color: '#8b949e' }}>{h.summary}</div></div>
+                          <div key={h.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px', borderRadius: '10px', backgroundColor: selectedHeadlines.find(x => x.id === h.id) ? '#1f6feb20' : '#161b22', border: `1px solid ${selectedHeadlines.find(x => x.id === h.id) ? '#1f6feb' : '#30363d'}` }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, cursor: 'pointer' }} onClick={() => toggleHeadline(h)}>
+                              <input type="checkbox" checked={!!selectedHeadlines.find(x => x.id === h.id)} readOnly />
+                              <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: '10px' }} className="mono">{h.source} • {h.time} • {h.minutesAgo}m lalu</div>
+                                <div style={{ fontWeight: '600', fontSize: '13px' }}>{h.title}</div>
+                                <div style={{ fontSize: '11px', color: '#8b949e' }}>{h.summary}</div>
+                              </div>
+                            </div>
+                            {/* ICON LINK UJUNG KANAN - REQUEST NO 4 */}
+                            <a href={h.url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ width: '36px', height: '36px', backgroundColor: '#0d1117', border: '1px solid #30363d', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', fontSize: '16px', cursor: 'pointer' }} title="Buka link berita asli">🔗</a>
                           </div>
                         ))}
+                        {selectedTopic.headlines.length === 0 && <div style={{ padding: '40px', textAlign: 'center', color: '#8b949e', fontSize: '13px' }}>Tidak ada berita dalam {trendTimeFilter} terakhir. Coba ganti ke 6 Jam / 24 Jam / Semua.</div>}
                       </div>
                     </div>
                     <div style={{ padding: '16px', backgroundColor: '#161b22' }}>
-                      <div style={{ fontSize: '11px', fontWeight: '700', color: '#a371f7', marginBottom: '10px' }}>🤖 AI HOOK</div>
+                      <div style={{ fontSize: '11px', fontWeight: '700', color: '#a371f7', marginBottom: '10px' }}>🤖 AI HOOK - {selectedTopic.title}</div>
                       {selectedTopic.hooks.map((hook, i) => (<div key={i} style={{ padding: '10px', backgroundColor: '#0d1117', border: '1px solid #30363d', borderRadius: '8px', marginBottom: '8px', fontSize: '12px', cursor: 'pointer' }} onClick={() => setJudulHtml(hook)}>{hook}</div>))}
+                      <div style={{ marginTop: '16px', fontSize: '10px', color: '#8b949e' }} className="mono">Filter aktif: {trendTimeFilter} — {selectedTopic.headlines.length} berita • Tap 🔗 untuk buka sumber asli</div>
                     </div>
                   </div>
                   <div style={{ padding: '12px 16px', borderTop: '1px solid #30363d', backgroundColor: '#161b22', display: 'flex', justifyContent: 'space-between' }}>
-                    <div className="mono" style={{ fontSize: '11px', color: '#8b949e' }}>{selectedHeadlines.length} dipilih</div>
+                    <div className="mono" style={{ fontSize: '11px', color: '#8b949e' }}>{selectedHeadlines.length} dipilih • Mode scraping seperti lama</div>
                     <button onClick={handleJadikanBerita} style={{ padding: '10px 16px', backgroundColor: '#1f6feb', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: '700', cursor: 'pointer', fontSize: '12px' }}>→ Jadikan Berita AgoraVada</button>
                   </div>
                 </div>
@@ -450,10 +407,6 @@ export default function AgoraVadaPortal() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   <div style={{ backgroundColor: '#0d1117', padding: '16px', borderRadius: '12px', border: '1px solid #30363d' }}>
                     <label style={{ fontSize: '11px', fontWeight: '700', color: '#a371f7', display: 'block', marginBottom: '10px' }}>📝 EDIT JUDUL</label>
-                    <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
-                      <button onClick={() => handleFormat('foreColor', '#E7E820')} style={{ backgroundColor: '#E7E820', color: '#000', padding: '6px 12px', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold', border: 'none' }}>Kuning</button>
-                      <button onClick={() => handleFormat('italic')} style={{ backgroundColor: '#21262d', color: '#fff', padding: '6px 14px', borderRadius: '6px', fontSize: '12px', border: '1px solid #30363d' }}>I</button>
-                    </div>
                     <div id="judul-editor" contentEditable onInput={(e) => setJudulHtml(e.currentTarget.innerHTML)} style={{ width: '100%', backgroundColor: '#161b22', border: '1px solid #30363d', color: '#fff', padding: '12px', borderRadius: '8px', fontSize: '14px', minHeight: '110px', outline: 'none' }} />
                   </div>
                   <div style={{ backgroundColor: '#0d1117', padding: '16px', borderRadius: '12px', border: '1px solid #30363d' }}><label style={{ fontSize: '11px', fontWeight: '700', color: '#f78166', display: 'block', marginBottom: '10px' }}>🔗 SUMBER BERITA</label><input type="text" style={{ width: '100%', backgroundColor: '#161b22', border: '1px solid #30363d', color: '#fff', padding: '10px', borderRadius: '8px', fontSize: '13px' }} value={sumberBerita} onChange={(e) => setSumberBerita(e.target.value)} /></div>
@@ -462,13 +415,9 @@ export default function AgoraVadaPortal() {
                   <div style={{ backgroundColor: '#0d1117', padding: '12px 16px', borderRadius: '12px', border: '1px solid #30363d' }}>
                     <label style={{ fontSize: '11px', fontWeight: '700', color: '#3fb950', display: 'block', marginBottom: '8px' }}>🖼️ KONTROL GAMBAR</label>
                     <div>Zoom <input type="range" min="0.2" max="3" step="0.05" value={imgScale} onChange={(e) => setImgScale(parseFloat(e.target.value))} style={{ width: '100%' }} /></div>
-                    <div>Geser X <input type="range" min="-1000" max="1000" step="10" value={imgX} onChange={(e) => setImgX(parseInt(e.target.value))} style={{ width: '100%' }} /></div>
-                    <div>Geser Y <input type="range" min="-1000" max="1000" step="10" value={imgY} onChange={(e) => setImgY(parseInt(e.target.value))} style={{ width: '100%' }} /></div>
                   </div>
                   <div style={{ backgroundColor: '#0d1117', padding: '12px 16px', borderRadius: '12px', border: '1px solid #30363d' }}>
-                    <label style={{ fontSize: '11px', fontWeight: '700', color: '#a371f7', display: 'block', marginBottom: '8px' }}>✨ KONTROL JUDUL</label>
-                    <div>Ukuran <input type="range" min="30" max="150" value={ukuranFont} onChange={(e) => setUkuranFont(parseInt(e.target.value))} style={{ width: '100%' }} /></div>
-                    <div style={{ display: 'flex', gap: '8px', marginTop: '14px', paddingTop: '12px', borderTop: '1px solid #30363d' }}>
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
                       <button style={{ width: '30%', backgroundColor: '#21262d', color: '#c9d1d9', padding: '12px', borderRadius: '8px', border: '1px solid #30363d' }} onClick={() => setCurrentPage(2)}>⬅</button>
                       <button style={{ width: '35%', backgroundColor: '#238636', color: '#fff', padding: '12px', borderRadius: '8px', border: 'none', fontWeight: '700' }} onClick={downloadGambar}>📥 Download</button>
                       <button style={{ width: '35%', backgroundColor: '#1f6feb', color: '#fff', padding: '12px', borderRadius: '8px', border: 'none', fontWeight: '700' }} onClick={handleTapUploadButton}>☁️ Upload</button>
@@ -480,10 +429,7 @@ export default function AgoraVadaPortal() {
           )}
           {currentPage === 4 && (
             <div style={{ display: 'grid', gridTemplateColumns: '420px 1fr', gap: '20px' }}>
-              <div style={{ backgroundColor: '#161b22', border: '1px solid #30363d', borderRadius: '14px', padding: '14px' }}>
-                <div style={{ fontSize: '11px', fontWeight: '700', color: '#8b949e', marginBottom: '10px' }}>PREVIEW TANPA GARIS</div>
-                {reviewImageUrl ? <img src={reviewImageUrl} alt="review" style={{ width: '100%', display: 'block' }} /> : <div style={{ padding: '80px', textAlign: 'center', color: '#6e7681' }}>No image</div>}
-              </div>
+              <div style={{ backgroundColor: '#161b22', border: '1px solid #30363d', borderRadius: '14px', padding: '14px' }}>{reviewImageUrl ? <img src={reviewImageUrl} alt="review" style={{ width: '100%', display: 'block' }} /> : <div style={{ padding: '80px', textAlign: 'center', color: '#6e7681' }}>No image</div>}</div>
               <div>
                 <div style={{ backgroundColor: '#0d1117', border: '1px solid #30363d', borderRadius: '14px', padding: '16px' }}>
                   <div style={{ fontSize: '11px', fontWeight: '700', color: '#58a6ff', marginBottom: '10px' }}>CAPTION</div>
