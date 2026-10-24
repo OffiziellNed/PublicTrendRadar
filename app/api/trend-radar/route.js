@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 
-// 9 MENU - HOMELESS MEDIA DI-REMOVE - NO CHEERIO - ANTI CRASH
+// 9 MENU + AUTO CLUSTERING BERITA MIRIP - NO CHEERIO
 const TOPIC_QUERIES = {
   jakarta: 'Pemprov DKI Jakarta OR Gubernur DKI',
   nasional: 'berita nasional Indonesia',
@@ -53,6 +53,65 @@ function parseRSS(xml) {
   return items;
 }
 
+// --- CLUSTERING LOGIC ---
+const STOPWORDS = new Set(['dan','di','yang','untuk','dari','dengan','pada','ke','ini','itu','adalah','akan','bisa','jadi','soal','tentang','dalam','secara','oleh','sebagai','saat','tengah','juga','sudah','telah','buka','ada','jadi','jika','atau','oleh','para','sebuah','tersebut','agar','hingga','bahwa','karena','dalam','kepada','namun','tetapi']);
+function normalizeWords(title) {
+  return title.toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter(w => w.length > 2 && !STOPWORDS.has(w))
+    .filter(w => !/^\d+$/.test(w) || w.length === 4); // keep year like 2029
+}
+function jaccardSimilarity(aTitle, bTitle) {
+  const aWords = new Set(normalizeWords(aTitle));
+  const bWords = new Set(normalizeWords(bTitle));
+  if (aWords.size === 0 || bWords.size === 0) return 0;
+  let inter = 0;
+  for (const w of aWords) if (bWords.has(w)) inter++;
+  const union = aWords.size + bWords.size - inter;
+  return union === 0 ? 0 : inter / union;
+}
+
+function clusterHeadlines(headlines, threshold = 0.38) {
+  const clusters = [];
+  // sort by time first - newest first biar jadi representative
+  const sorted = [...headlines].sort((a,b) => a.minutesAgo - b.minutesAgo);
+  for (const h of sorted) {
+    let found = false;
+    for (const cluster of clusters) {
+      const rep = cluster[0];
+      const sim = jaccardSimilarity(h.title, rep.title);
+      // bonus kalau ada tahun sama dan keyword MK/Prabowo/Jokowi sama
+      const sameYear = (h.title.match(/2029|2024|2025/) && rep.title.match(/2029|2024|2025/));
+      if (sim >= threshold || (sim >= 0.28 && sameYear)) {
+        cluster.push(h);
+        // keep cluster sorted by time
+        cluster.sort((a,b) => a.minutesAgo - b.minutesAgo);
+        found = true;
+        break;
+      }
+    }
+    if (!found) clusters.push([h]);
+  }
+  // transform to grouped object
+  return clusters.map((cluster, idx) => {
+    const main = cluster[0]; // newest
+    const allSources = [...new Set(cluster.map(c => c.source))];
+    return {
+      id: `cluster-${idx}`,
+      isCluster: cluster.length > 1,
+      count: cluster.length,
+      title: main.title,
+      mainUrl: main.url,
+      time: main.time,
+      minutesAgo: main.minutesAgo,
+      sources: allSources,
+      headlines: cluster, // all variants
+      source: cluster.length > 1 ? `${allSources.length} sumber` : main.source,
+    };
+  });
+}
+
 async function fetchRSS(topicId, hours) {
   try {
     const q = TOPIC_QUERIES[topicId] || topicId;
@@ -84,7 +143,7 @@ async function fetchRSS(topicId, hours) {
       });
     }
     items.sort((a,b) => a.minutesAgo - b.minutesAgo);
-    return items.slice(0, 50);
+    return items.slice(0, 60);
   } catch {
     return [];
   }
@@ -102,13 +161,15 @@ export async function GET(req) {
 
     const results = await Promise.all(topicOrder.map(async (id) => {
       const headlines = await fetchRSS(id, hours);
+      const clustered = clusterHeadlines(headlines);
       return {
         id,
         title: TOPIC_META[id].title,
         icon: TOPIC_META[id].icon,
-        volume: `${headlines.length} berita`,
-        lastUpdate: `dalam ${hours} jam terakhir`,
-        headlines,
+        volume: `${headlines.length} berita • ${clustered.length} isu`,
+        lastUpdate: `dalam ${hours} jam terakhir • auto group mirip`,
+        headlines: headlines, // raw
+        clusters: clustered, // grouped
       };
     }));
 
@@ -117,4 +178,3 @@ export async function GET(req) {
     return NextResponse.json({ success: false, error: String(e), topics: [] }, { status: 200 });
   }
 }
-
