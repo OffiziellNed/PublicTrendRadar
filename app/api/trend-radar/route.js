@@ -1,19 +1,21 @@
 import { NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 
-// 11 MENU - REAL DATA ONLY - 3JAM / 6JAM / 24JAM - NO FALLBACK
+// 11 MENU - BALANCE REAL - FIX SOSIAL & KRIMINAL KOSONG - NO FALLBACK
 const TOPIC_QUERIES = {
-  jakarta: 'Pemprov DKI Jakarta OR Gubernur DKI',
+  jakarta: 'Jakarta OR DKI Jakarta OR Pemprov DKI',
   nasional: 'berita nasional Indonesia',
-  bencana: 'bencana alam OR gempa bumi OR banjir',
-  pdip: 'PDI Perjuangan OR PDIP',
-  megawati: 'Megawati Soekarnoputri OR Ketua Umum PDIP OR Bu Mega',
-  puan: 'Puan Maharani OR Ketua DPR RI',
-  kritik_publik: 'kritik pemerintah OR demo mahasiswa OR unjuk rasa',
-  dedi_mulyadi: 'Dedi Mulyadi OR Gubernur Jawa Barat',
-  keluarga_jokowi: 'Jokowi OR Gibran Rakabuming OR Keluarga Jokowi',
-  sosial: 'viral OR kisah inspiratif OR cerita unik OR kejadian lucu OR fenomena unik OR tradisi unik OR video viral OR tiktok viral OR kisah haru OR ojol',
-  kriminal: 'kriminal OR pembunuhan OR penganiayaan OR pengeroyokan OR pembacokan OR penembakan OR KDRT OR narkoba OR sabu OR ganja OR ekstasi OR pengedaran narkotika OR perampokan OR pencurian OR begal OR curanmor OR penipuan OR pemerkosaan OR pelecehan seksual OR tawuran OR mutilasi OR mayat ditemukan OR pengrusakan OR penodongan',
+  bencana: 'bencana OR gempa OR banjir OR longsor OR erupsi',
+  pdip: 'PDIP OR PDI Perjuangan',
+  megawati: 'Megawati Soekarnoputri OR Megawati',
+  puan: 'Puan Maharani',
+  kritik_publik: 'kritik pemerintah OR demo OR unjuk rasa OR protes publik',
+  dedi_mulyadi: 'Dedi Mulyadi OR KDM',
+  keluarga_jokowi: 'Jokowi OR Gibran OR Kaesang OR Keluarga Jokowi',
+  // FIX SOSIAL: query broad yang pasti ada tiap jam, jangan pakai frase aneh
+  sosial: '(viral OR kisah inspiratif OR cerita unik OR video viral OR tiktok viral OR kejadian unik OR kisah haru OR tradisi unik OR fenomena unik OR driver ojol OR nenek viral)',
+  // FIX KRIMINAL: query pendek, filter longgar biar gak 1 berita doang
+  kriminal: '(kriminal OR pembunuhan OR narkoba OR sabu OR perampokan OR pencurian OR begal OR KDRT OR pemerkosaan OR penipuan OR tawuran)',
 };
 
 const TOPIC_META = {
@@ -63,32 +65,36 @@ function clusterHeadlines(headlines, threshold=0.38){
 
 async function fetchRSS(topicId, hours){
   try{
-    const q = TOPIC_QUERIES[topicId];
-    const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(q + ` when:${hours}h`)}&hl=id&gl=ID&ceid=ID:id`;
+    let q = TOPIC_QUERIES[topicId];
+    // FIX: bungkus query pakai kurung + when di luar kurung biar Google News gak bingung
+    const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(q)}+when%3A${hours}h&hl=id&gl=ID&ceid=ID:id`;
     const res = await fetch(rssUrl, { headers: { 'User-Agent': 'Mozilla/5.0' }, cache: 'no-store' });
     if(!res.ok) return [];
     const xml = await res.text();
     const rawItems = parseRSS(xml);
+
     const items=[];
     for(let i=0;i<rawItems.length;i++){
       const { titleFull, linkRaw, pubDateStr, source } = rawItems[i];
       const pubDate = new Date(pubDateStr);
       const minutesAgo = isNaN(pubDate.getTime()) ? 9999 : Math.floor((Date.now()-pubDate.getTime())/60000);
-      if(minutesAgo > hours*60 + 120) continue;
+      if(minutesAgo > hours*60 + 180) continue; // toleransi 3 jam
       const cleanTitle = (titleFull.split(' - ')[0] || titleFull).trim();
       if(!cleanTitle) continue;
       const t = cleanTitle.toLowerCase();
+
+      // Filter ketat cuma untuk 3 menu politik yang gampang bocor, sisanya biarin loss biar balance
       if(topicId==='jakarta' && !(t.includes('jakarta')||t.includes('dki'))) continue;
-      if(topicId==='megawati' && !t.includes('megawati') && !t.includes('mega')) continue;
+      if(topicId==='megawati' && !(t.includes('megawati')||t.includes('mega'))) continue;
       if(topicId==='puan' && !t.includes('puan')) continue;
-      if(topicId==='kriminal'){
-        const kCheck=['bunuh','aniaya','keroyok','bacok','tembak','kdrt','narkoba','sabu','ganja','rampok','curi','begal','tipu','perkosa','leceh','tawuran','mutilasi','mayat','rusak','todong','maling','curanmor','jambret'];
-        if(!kCheck.some(k=>t.includes(k))) continue;
-      }
+      // kriminal & sosial JANGAN di-filter ketat lagi - biar balance
+
       items.push({ id:`${topicId}-${i}`, source:(source||'Google News').slice(0,30), time:formatTimeAgo(minutesAgo), minutesAgo, title:cleanTitle, url:linkRaw.replace(/&amp;/g,'&'), link:linkRaw.replace(/&amp;/g,'&') });
     }
     items.sort((a,b)=>a.minutesAgo-b.minutesAgo);
-    return items.slice(0,60);
+
+    // BALANCE: batasi max 20 per menu biar gak jomplang 40 vs 1
+    return items.slice(0,20);
   }catch{ return []; }
 }
 
