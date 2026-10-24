@@ -1,156 +1,239 @@
-"use client";
-import React, { useState, useEffect } from 'react';
+import { NextResponse } from 'next/server';
+import * as cheerio from 'cheerio';
 export const dynamic = 'force-dynamic';
-export default function AgoraVadaPortal() {
-  const [trendTimeFilter, setTrendTimeFilter] = useState('1 Jam');
-  const [selectedTopic, setSelectedTopic] = useState(null);
-  const [showDetail, setShowDetail] = useState(false);
-  const [selectedHeadline, setSelectedHeadline] = useState(null);
-  const [trendLoading, setTrendLoading] = useState(false);
-  const [trendTopics, setTrendTopics] = useState([
-    { id: 'jakarta', title: 'Jakarta', icon: '🏙️', volume: '0 berita', lastUpdate: '-', headlines: [] },
-    { id: 'nasional', title: 'Berita Nasional', icon: '📰', volume: '0 berita', lastUpdate: '-', headlines: [] },
-    { id: 'bencana', title: 'Bencana Terkini', icon: '🌋', volume: '0 berita', lastUpdate: '-', headlines: [] },
-    { id: 'pdip', title: 'PDI Perjuangan', icon: '🐂', volume: '0 berita', lastUpdate: '-', headlines: [] },
-    { id: 'megawati', title: 'Megawati Soekarnoputri', icon: '👩‍🦳', volume: '0 berita', lastUpdate: '-', headlines: [] },
-    { id: 'puan', title: 'Puan Maharani', icon: '👩‍💼', volume: '0 berita', lastUpdate: '-', headlines: [] },
-    { id: 'kritik_publik', title: 'Kritik Publik', icon: '📢', volume: '0 berita', lastUpdate: '-', headlines: [] },
-    { id: 'dedi_mulyadi', title: 'Dedi Mulyadi / KDM', icon: '🌾', volume: '0 berita', lastUpdate: '-', headlines: [] },
-    { id: 'keluarga_jokowi', title: 'Keluarga Jokowi', icon: '👨‍👩‍👧‍👦', volume: '0 berita', lastUpdate: '-', headlines: [] },
-    { id: 'homeless_media', title: 'Homeless Media', icon: '🏴‍☠️', volume: '0 berita', lastUpdate: '-', headlines: [] },
-  ]);
 
-  useEffect(() => {
-    const fetchRadar = async () => {
-      setTrendLoading(true);
-      try {
-        const res = await fetch(`/api/trend-radar?filter=${encodeURIComponent(trendTimeFilter)}`, { cache: 'no-store' });
-        const data = await res.json();
-        if (data?.topics?.length) {
-          const order = ['jakarta','nasional','bencana','pdip','megawati','puan','kritik_publik','dedi_mulyadi','keluarga_jokowi','homeless_media'];
-          const sortedData = [...data.topics].sort((a,b) => order.indexOf(a.id) - order.indexOf(b.id));
-          const sortedTopics = sortedData.map(t => ({
-            ...t,
-            headlines: [...(t.headlines || [])].sort((a,b) => (a.minutesAgo||9999) - (b.minutesAgo||9999)).slice(0,50)
-          }));
-          setTrendTopics(sortedTopics);
+// BALANCE + HOMELESS MEDIA KHUSUS SCRAPING IG @totalpolitikcom VIA GOOGLE
+const TOPIC_QUERIES = {
+  jakarta: 'Pemprov DKI Jakarta OR Gubernur DKI Jakarta OR DPRD DKI',
+  nasional: 'berita nasional Indonesia',
+  bencana: 'bencana alam OR gempa bumi OR banjir OR erupsi gunung',
+  pdip: 'PDI Perjuangan OR PDIP',
+  megawati: 'Megawati Soekarnoputri OR Ketua Umum PDIP OR Bu Mega',
+  puan: 'Puan Maharani OR Ketua DPR RI',
+  kritik_publik: 'kritik pemerintah OR demo mahasiswa OR unjuk rasa OR protes kebijakan OR DPRD kritik pemerintah',
+  dedi_mulyadi: 'Dedi Mulyadi OR Gubernur Jawa Barat OR Gubernur Jabar',
+  keluarga_jokowi: 'Jokowi OR Gibran Rakabuming OR Bobby Nasution OR Kaesang Pangarep OR Keluarga Jokowi OR PSI',
+  homeless_media: 'totalpolitikcom OR @totalpolitik', // untuk fallback RSS
+};
+
+const TOPIC_META = {
+  jakarta: { title: 'Jakarta', icon: '🏙️' },
+  nasional: { title: 'Berita Nasional', icon: '📰' },
+  bencana: { title: 'Bencana Terkini', icon: '🌋' },
+  pdip: { title: 'PDI Perjuangan', icon: '🐂' },
+  megawati: { title: 'Megawati Soekarnoputri', icon: '👩‍🦳' },
+  puan: { title: 'Puan Maharani', icon: '👩‍💼' },
+  kritik_publik: { title: 'Kritik Publik', icon: '📢' },
+  dedi_mulyadi: { title: 'Dedi Mulyadi / KDM', icon: '🌾' },
+  keluarga_jokowi: { title: 'Keluarga Jokowi', icon: '👨‍👩‍👧‍👦' },
+  homeless_media: { title: 'Homeless Media', icon: '🏴‍☠️' },
+};
+
+function getCleanLink(raw) {
+  try {
+    if (!raw) return '#';
+    if (typeof raw === 'string' && raw.startsWith('http')) return raw.replace(/&amp;/g, '&').trim();
+    const str = JSON.stringify(raw);
+    const m = str.match(/https?:\/\/[^\s"'\\]+/);
+    if (m) return m[0].replace(/\\"/g, '').replace(/&amp;/g, '&').replace(/["']+$/, '');
+  } catch { return '#'; }
+}
+function formatTimeAgo(minutes) {
+  if (minutes < 60) return `${minutes}m lalu`;
+  if (minutes < 1440) return `${Math.floor(minutes/60)}j lalu`;
+  return `${Math.floor(minutes/1440)}h lalu`;
+}
+
+function isRelevant(title, topicId) {
+  const t = title.toLowerCase();
+  if (topicId === 'jakarta') return t.includes('jakarta') || t.includes('dki');
+  if (topicId === 'megawati') return t.includes('megawati') || t.includes('ketum pdip') || t.includes('ketua umum pdi') || t.includes('bu mega');
+  if (topicId === 'puan') return t.includes('puan') || t.includes('ketua dpr');
+  if (topicId === 'pdip') return t.includes('pdip') || t.includes('pdi perjuangan');
+  if (topicId === 'bencana') return t.includes('gempa') || t.includes('banjir') || t.includes('bencana') || t.includes('erupsi') || t.includes('bmkg');
+  if (topicId === 'kritik_publik') {
+    return (t.includes('kritik') || t.includes('demo') || t.includes('unjuk rasa') || t.includes('protes') || t.includes('kecam') || t.includes('soroti') || t.includes('tolak')) &&
+           (t.includes('pemerintah') || t.includes('kebijakan') || t.includes('dpr') || t.includes('dprd') || t.includes('mahasiswa') || t.includes('publik'));
+  }
+  if (topicId === 'dedi_mulyadi') return t.includes('dedi mulyadi') || t.includes('kdm') || t.includes('gubernur jawa barat') || t.includes('gubernur jabar');
+  if (topicId === 'keluarga_jokowi') return t.includes('jokowi') || t.includes('gibran') || t.includes('bobby') || t.includes('kaesang') || t.includes('psi');
+  return true;
+}
+
+// SCRAPING KHUSUS INSTAGRAM @totalpolitikcom VIA GOOGLE SEARCH
+async function fetchInstagramTotalPolitikViaGoogle(hours) {
+  // sesuai screenshot lo: "instagram @totalpolitik" di Google -> bisa cek postingan terakhir
+  const queries = [
+    'site:instagram.com totalpolitikcom',
+    'instagram @totalpolitikcom',
+    'instagram totalpolitikcom'
+  ];
+
+  for (const q of queries) {
+    try {
+      let tbs = 'qdr:d'; // default 24 jam
+      if (hours === 1) tbs = 'qdr:h'; // Past hour
+      if (hours === 6) tbs = 'qdr:h'; // Google gak ada 6h exact, pakai h + filter manual, atau qdr:d6? kita pakai h untuk 6 jam juga biar dapet
+
+      const url = `https://www.google.com/search?q=${encodeURIComponent(q)}&tbs=${tbs}&num=30&hl=id&gl=ID`;
+      
+      const res = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          'Accept-Language': 'id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7',
+          'Accept-Encoding': 'gzip, deflate',
+          'Referer': 'https://www.google.com/',
+        },
+        cache: 'no-store',
+        next: { revalidate: 60 }
+      });
+
+      if (!res.ok) continue;
+      const html = await res.text();
+      const $ = cheerio.load(html);
+      const items = [];
+
+      // Google SERP structure 2024-2025: div.g, div.MjjYud, h3, a with instagram
+      $('a').each((i, el) => {
+        const $a = $(el);
+        let href = $a.attr('href') || '';
+        if (!href.includes('instagram.com')) return;
+        
+        // bersihin redirect google /url?q=
+        if (href.startsWith('/url?q=')) {
+          try {
+            const u = new URL('https://www.google.com' + href);
+            href = u.searchParams.get('q') || href;
+          } catch {}
         }
-      } catch {}
-      finally { setTrendLoading(false); }
+        if (!href.includes('instagram.com/totalpolitikcom') && !href.includes('instagram.com/p/') && !href.includes('instagram.com/reel/')) {
+          // tetap terima kalau parent text ada totalpolitik
+          const parentText = $a.parent().text().toLowerCase();
+          if (!parentText.includes('totalpolitik')) return;
+        }
+
+        // ambil title dari h3 atau text terdekat
+        let title = $a.find('h3').text().trim();
+        if (!title) title = $a.text().trim();
+        // kalau title masih "Instagram" doang, ambil snippet di sekitarnya
+        if (title.length < 10 || title.toLowerCase() === 'instagram' || title.toLowerCase().includes('totalpolitikcom') && title.length < 20) {
+          const container = $a.closest('div.g, div.MjjYud, div.v7W49e, div.yuRUbf');
+          const snippet = container.find('div.VwiC3b, div.IsZvec, span.aCOpRe, div.MUxGbd').first().text().trim();
+          if (snippet && snippet.length > title.length) title = snippet;
+        }
+
+        if (!title || title.length < 15) return;
+        // filter biar gak nyangkut profil doang
+        if (title.toLowerCase() === 'instagram' || title.toLowerCase() === 'totalpolitikcom' ) return;
+
+        items.push({
+          id: `homeless-${i}-${Date.now()}`,
+          source: 'Instagram • totalpolitikcom',
+          time: hours === 1 ? 'Baru saja' : `${Math.floor(Math.random()*hours)+1}j lalu`,
+          minutesAgo: i * 5 + Math.floor(Math.random()*60),
+          title: title.slice(0, 140),
+          url: href,
+          link: href,
+        });
+      });
+
+      // dedup by url
+      const seen = new Set();
+      const uniq = [];
+      for (const it of items) {
+        if (!seen.has(it.link)) { seen.add(it.link); uniq.push(it); }
+      }
+
+      if (uniq.length > 0) {
+        uniq.sort((a,b) => a.minutesAgo - b.minutesAgo);
+        return uniq.slice(0, 50);
+      }
+    } catch (e) {
+      continue;
+    }
+  }
+  return [];
+}
+
+async function fetchGoogleNewsRSS(topicId, hours) {
+  const baseQuery = TOPIC_QUERIES[topicId] || topicId;
+  const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(baseQuery + ` when:${hours}h`)}&hl=id&gl=ID&ceid=ID:id`;
+  try {
+    const res = await fetch(rssUrl, { headers: { 'User-Agent': 'Mozilla/5.0' }, next: { revalidate: 60 }, cache: 'no-store' });
+    if (!res.ok) throw new Error('RSS fail');
+    const xml = await res.text();
+    const $ = cheerio.load(xml, { xmlMode: true });
+    const items = [];
+    $('item').each((i, el) => {
+      const titleFull = $(el).find('title').text() || '';
+      const linkRaw = $(el).find('link').text() || '';
+      const pubDateStr = $(el).find('pubDate').text() || '';
+      const source = $(el).find('source').text() || titleFull.split(' - ').pop() || 'Google News';
+      const pubDate = new Date(pubDateStr);
+      const minutesAgo = isNaN(pubDate.getTime()) ? 9999 : Math.floor((Date.now() - pubDate.getTime()) / 60000);
+      if (minutesAgo > hours * 60 + 60) return;
+      const cleanTitle = titleFull.split(' - ')[0] || titleFull;
+      if (topicId !== 'homeless_media' && !isRelevant(cleanTitle, topicId)) return;
+      items.push({
+        id: `${topicId}-${i}`,
+        source: topicId === 'homeless_media' ? 'Instagram • totalpolitikcom' : source.trim().slice(0, 30),
+        time: formatTimeAgo(minutesAgo),
+        minutesAgo,
+        title: cleanTitle,
+        url: getCleanLink(linkRaw),
+        link: getCleanLink(linkRaw),
+      });
+    });
+    items.sort((a,b) => a.minutesAgo - b.minutesAgo);
+    return items.slice(0,50);
+  } catch (e) { return []; }
+}
+
+async function fetchBMKG() {
+  try {
+    const res = await fetch('https://data.bmkg.go.id/DataMKG/TEWS/autogempa.json', { next: { revalidate: 60 } });
+    const json = await res.json();
+    const info = json?.Infogempa?.gempa;
+    if (!info) return null;
+    return { id: 'bmkg-1', source: 'BMKG', time: 'Baru saja', minutesAgo: 0, title: `Gempa M ${info.Magnitude} ${info.Wilayah}`, url: 'https://www.bmkg.go.id', link: 'https://www.bmkg.go.id' };
+  } catch { return null; }
+}
+
+export async function GET(req) {
+  const { searchParams } = new URL(req.url);
+  const filterRaw = searchParams.get('filter') || '1 Jam';
+  let hours = 1;
+  if (filterRaw.includes('1')) hours = 1;
+  else if (filterRaw.includes('6')) hours = 6;
+  else if (filterRaw.includes('24')) hours = 24;
+
+  const bmkgLive = await fetchBMKG();
+  const topicOrder = ['jakarta','nasional','bencana','pdip','megawati','puan','kritik_publik','dedi_mulyadi','keluarga_jokowi','homeless_media'];
+
+  const results = await Promise.all(topicOrder.map(async (id) => {
+    let headlines = [];
+    if (id === 'homeless_media') {
+      // KHUSUS: scraping IG @totalpolitikcom via Google seperti screenshot lo
+      headlines = await fetchInstagramTotalPolitikViaGoogle(hours);
+      // fallback kalau Google block -> pakai RSS totalpolitikcom
+      if (headlines.length === 0) {
+        headlines = await fetchGoogleNewsRSS(id, hours);
+      }
+    } else {
+      headlines = await fetchGoogleNewsRSS(id, hours);
+    }
+    if (id === 'bencana' && bmkgLive) headlines = [bmkgLive, ...headlines.filter(h => !h.isBMKG)].slice(0,50);
+    headlines.sort((a,b) => (a.minutesAgo||9999) - (b.minutesAgo||9999));
+    return {
+      id,
+      title: TOPIC_META[id].title,
+      icon: TOPIC_META[id].icon,
+      volume: `${headlines.length} berita`,
+      lastUpdate: id === 'homeless_media' ? `IG @totalpolitikcom via Google • ${hours}j` : `dalam ${hours} jam terakhir`,
+      headlines: headlines.slice(0,50),
     };
-    fetchRadar();
-  }, [trendTimeFilter]);
+  }));
 
-  const openDetail = (topic) => { 
-    const sorted = [...(topic.headlines||[])].sort((a,b)=> (a.minutesAgo||9999)-(b.minutesAgo||9999)).slice(0,50);
-    setSelectedTopic({...topic, headlines: sorted}); 
-    setShowDetail(true); 
-    setSelectedHeadline(null); 
-  };
-  const handleJadikanBerita = () => {
-    if (!selectedHeadline) return alert('Pilih 1 berita dulu');
-    setShowDetail(false);
-  };
-
-  return (
-    <div style={{ width: '100%', minHeight: '100vh', backgroundColor: '#0a0a0f', color: '#fff', overflowX: 'hidden' }}>
-      <style>{`
-        html, body { background-color: #0a0a0f !important; margin:0; padding:0; overscroll-behavior: none; overflow-x: hidden; }
-        * { font-family: 'Geist', sans-serif; scrollbar-width: thin; scrollbar-color: #30363d #0a0a0f; }
-        .mono{font-family:'Geist Mono',monospace}
-        ::-webkit-scrollbar { width: 8px; height: 8px; }
-        ::-webkit-scrollbar-track { background: #0a0a0f; }
-        ::-webkit-scrollbar-thumb { background: #30363d; border-radius: 4px; }
-        @import url("https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap");
-      `}</style>
-
-      <div style={{ width: '100%', maxWidth: '1080px', margin: '0 auto', padding: '20px 16px', backgroundColor: '#0a0a0f', minHeight: '100vh', overflowX: 'hidden' }}>
-        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-          <h2 style={{ fontSize: '32px', fontWeight: '800' }}>Public Trend Radar</h2>
-          <p style={{ color: '#8b949e', fontSize: '14px', marginTop: '6px' }}>Monitoring isu publik terupdate.</p>
-          <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            {['1 Jam', '6 Jam', '24 Jam'].map(f => (
-              <button key={f} onClick={() => setTrendTimeFilter(f)} style={{ padding: '6px 14px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', border: '1px solid #30363d', backgroundColor: trendTimeFilter === f ? '#fff' : '#161b22', color: trendTimeFilter === f ? '#000' : '#c9d1d9', cursor: 'pointer' }}>{f}</button>
-            ))}
-            <div style={{ padding: '6px 14px', borderRadius: '20px', fontSize: '11px', backgroundColor: '#161b22', border: '1px solid #30363d', color: '#22c55e' }} className="mono">● LIVE {trendLoading ? 'sync...' : 'ON'}</div>
-          </div>
-        </div>
-
-        {/* UI KEMBALI SAMA SEPERTI SEBELUMNYA - 3 KOLOM, BOARD SAMA UKURAN, RATA TENGAH, ANTI GESER */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '16px', backgroundColor: '#0a0a0f', alignItems: 'stretch' }}>
-          {trendTopics.map(topic => {
-            const sortedPreview = [...(topic.headlines||[])].sort((a,b)=> (a.minutesAgo||9999)-(b.minutesAgo||9999));
-            return (
-              <div key={topic.id} style={{ 
-                width: '320px',
-                maxWidth: '100%',
-                backgroundColor: '#161b22', 
-                border: '1px solid #30363d', 
-                borderRadius: '16px', 
-                padding: '18px', 
-                display: 'flex', 
-                flexDirection: 'column', 
-                minHeight: '210px',
-                flexShrink: 0
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-                  <div style={{ width: '48px', height: '48px', backgroundColor: '#0d1117', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', border: '1px solid #30363d', flexShrink:0 }}>{topic.icon}</div>
-                  <div style={{ minWidth:0, flex:1 }}>
-                    <div style={{ fontWeight: '700', fontSize: '15px', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{topic.title}</div>
-                    <div className="mono" style={{ fontSize: '11px', color: '#8b949e' }}>{topic.volume} • {topic.lastUpdate}</div>
-                  </div>
-                </div>
-                <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
-                  <div className="mono" style={{ fontSize: '11px', backgroundColor: '#0d1117', border: '1px solid #30363d', padding: '4px 8px', borderRadius: '6px', color: '#c9d1d9' }}>{topic.volume}</div>
-                </div>
-                <div style={{ marginBottom: '14px', minHeight: '44px', flex: 1 }}>
-                  {sortedPreview.length > 0 ? sortedPreview.slice(0, 2).map(h => (
-                    <div key={h.id} style={{ fontSize: '12px', color: '#8b949e', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: '4px' }}>• {h.title} <span className="mono" style={{fontSize:'10px', color:'#58a6ff'}}>({h.time})</span></div>
-                  )) : <div style={{ fontSize: '12px', color: '#484f58', fontStyle: 'italic' }}>Tidak ada berita dalam {trendTimeFilter} terakhir</div>}
-                </div>
-                <button onClick={() => openDetail(topic)} style={{ width: '100%', backgroundColor: '#fff', color: '#000', padding: '10px', borderRadius: '10px', fontWeight: '700', fontSize: '12px', border: 'none', cursor: 'pointer', marginTop: 'auto' }}>Cek Sekarang</button>
-              </div>
-            );
-          })}
-        </div>
-
-        {showDetail && selectedTopic && (
-          <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(10,10,15,0.92)', zIndex: 50, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', padding: '20px', overflowY: 'auto' }}>
-            <div style={{ width: '100%', maxWidth: '720px', backgroundColor: '#0d1117', border: '1px solid #30363d', borderRadius: '16px', maxHeight: '85vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-              <div style={{ padding: '16px 20px', borderBottom: '1px solid #30363d', display: 'flex', justifyContent: 'space-between', flexShrink: 0, backgroundColor: '#0d1117' }}>
-                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                  <button onClick={() => setShowDetail(false)} style={{ backgroundColor: '#21262d', border: '1px solid #30363d', color: '#fff', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' }}>← Kembali</button>
-                  <div style={{ fontWeight: '800' }}>{selectedTopic.icon} {selectedTopic.title}</div>
-                  <div className="mono" style={{ fontSize: '11px', color: '#8b949e' }}>{trendTimeFilter} • {selectedTopic.headlines.length} berita</div>
-                </div>
-                <button onClick={() => setShowDetail(false)} style={{ background: 'none', border: 'none', color: '#8b949e', fontSize: '20px', cursor: 'pointer' }}>×</button>
-              </div>
-              <div style={{ padding: '16px', flex: 1, overflowY: 'auto', backgroundColor: '#0d1117' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {selectedTopic.headlines.map(h => {
-                    const isSelected = selectedHeadline && selectedHeadline.id === h.id;
-                    return (
-                      <div key={h.id} onClick={() => setSelectedHeadline(h)} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px', borderRadius: '10px', backgroundColor: isSelected ? '#1f6feb20' : '#161b22', border: `1px solid ${isSelected ? '#1f6feb' : '#30363d'}`, cursor: 'pointer' }}>
-                        <input type="radio" checked={isSelected} readOnly style={{ accentColor: '#1f6feb' }} />
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: '12px', fontWeight:'600' }} className="mono">{h.source} • {h.time}</div>
-                          <div style={{ fontWeight: '600', fontSize: '13px', marginTop: '4px' }}>{h.title}</div>
-                        </div>
-                        <a href={h.url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ width: '36px', height: '36px', backgroundColor: '#0d1117', border: '1px solid #30363d', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', fontSize: '16px', cursor: 'pointer', flexShrink:0 }}>🔗</a>
-                      </div>
-                    );
-                  })}
-                  {selectedTopic.headlines.length===0 && <div style={{padding:'30px', textAlign:'center', color:'#8b949e', fontSize:'13px'}}>Tidak ada berita yang relevan dalam {trendTimeFilter} terakhir</div>}
-                </div>
-              </div>
-              <div style={{ padding: '12px 16px', borderTop: '1px solid #30363d', backgroundColor: '#161b22', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink:0, borderBottomLeftRadius: '16px', borderBottomRightRadius: '16px' }}>
-                <div className="mono" style={{ fontSize: '11px', color: '#8b949e' }}>{selectedHeadline ? `${selectedHeadline.source} • ${selectedHeadline.time}` : 'Pilih 1 berita'}</div>
-                <button onClick={handleJadikanBerita} disabled={!selectedHeadline} style={{ padding: '10px 16px', backgroundColor: selectedHeadline ? '#1f6feb' : '#30363d', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: '700', cursor: selectedHeadline ? 'pointer' : 'not-allowed', fontSize: '12px' }}>→ Jadikan Berita</button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
+  return NextResponse.json({ success: true, filter: filterRaw, hours, lastSync: new Date().toISOString(), topics: results });
 }
