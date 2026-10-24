@@ -2,18 +2,18 @@ import { NextResponse } from 'next/server';
 import * as cheerio from 'cheerio';
 export const dynamic = 'force-dynamic';
 
-// 10 MENU - KRITIK PUBLIK REVISI + HOMELESS MEDIA
+// PORSI BESAR DI MEGA, PUAN, KRITIK - JAKARTA DIPANGKAS
 const TOPIC_QUERIES = {
-  jakarta: 'Jakarta',
+  jakarta: 'Pemprov DKI Jakarta OR Gubernur DKI Jakarta OR DPRD DKI Jakarta OR Balai Kota DKI',
   nasional: 'berita nasional Indonesia',
   bencana: 'bencana alam OR gempa bumi OR banjir',
   pdip: 'PDI Perjuangan',
-  megawati: 'Megawati Soekarnoputri',
-  puan: 'Puan Maharani',
-  kritik_publik: 'kritik pemerintah OR kritik kebijakan OR demo mahasiswa OR aksi demo OR unjuk rasa OR DPR kritik pemerintah OR DPRD kritik pemerintah OR mahasiswa protes OR protes kebijakan',
-  dedi_mulyadi: 'Dedi Mulyadi OR KDM OR Gubernur Jawa Barat OR Gubernur Jabar OR Kang Dedi Mulyadi',
-  keluarga_jokowi: 'Jokowi OR Joko Widodo OR Gibran Rakabuming OR Bobby Nasution OR Kahiyang Ayu OR Kaesang Pangarep OR Keluarga Jokowi',
-  homeless_media: 'totalpolitik OR pinterpolitik OR asumsico OR narasi.tv OR matanarasi OR watchdoc OR mojok OR tirto.id OR katadata OR projectmultatuli OR magdaleneid OR konde.co OR mongabay OR vice indonesia OR folkative OR volkxmedia OR ussfeed OR context.id OR historia.id OR politiksantuy OR bijakpolitik OR lambe turah OR ferry irwandi OR malakaproject OR kompas.com OR detik.com OR cnnindonesia OR kumparan OR tempo.co',
+  megawati: 'Megawati Soekarnoputri OR Megawati Soekarno Putri OR Ketua Umum PDI Perjuangan OR Ketum PDIP OR Bu Mega OR Ibu Mega OR Megawati',
+  puan: 'Puan Maharani OR Ketua DPR Puan Maharani OR Puan Ketua DPR OR Ketua DPR RI',
+  kritik_publik: 'kritik pemerintah OR kritik kebijakan OR demo mahasiswa OR aksi demo OR unjuk rasa OR DPR kritik pemerintah OR DPRD kritik OR protes pemerintah OR kecam pemerintah OR soroti pemerintah OR tolak kebijakan OR aksi massa OR mahasiswa protes',
+  dedi_mulyadi: 'Dedi Mulyadi OR KDM OR Gubernur Jawa Barat OR Gubernur Jabar',
+  keluarga_jokowi: 'Jokowi OR Joko Widodo OR Gibran Rakabuming OR Bobby Nasution OR Kahiyang Ayu OR Kaesang Pangarep',
+  homeless_media: 'totalpolitik OR pinterpolitik OR asumsico OR narasi.tv OR matanarasi OR watchdoc OR mojok OR tirto.id OR katadata OR projectmultatuli OR kompas.com OR detik.com OR cnnindonesia',
 };
 
 const TOPIC_META = {
@@ -36,8 +36,7 @@ function getCleanLink(raw) {
     const str = JSON.stringify(raw);
     const m = str.match(/https?:\/\/[^\s"'\\]+/);
     if (m) return m[0].replace(/\\"/g, '').replace(/&amp;/g, '&').replace(/["']+$/, '');
-  } catch {}
-  return '#';
+  } catch { return '#'; }
 }
 function formatTimeAgo(minutes) {
   if (minutes < 60) return `${minutes}m lalu`;
@@ -47,47 +46,50 @@ function formatTimeAgo(minutes) {
 
 function isRelevant(title, topicId) {
   const t = title.toLowerCase();
-
-  if (topicId === 'megawati') {
-    return (
-      t.includes('megawati') ||
-      t.includes('ketua umum pdi perjuangan') ||
-      t.includes('ketum pdi perjuangan') ||
-      t.includes('ketua umum pdip') ||
-      t.includes('ketum pdip') ||
-      t.includes('bu mega') ||
-      (t.includes('ketum') && (t.includes('pdi') || t.includes('pdip'))) ||
-      (t.includes('ketua umum') && (t.includes('pdi') || t.includes('pdip')))
+  if (topicId === 'jakarta') {
+    // PANGKAS JAKARTA - harus ada unsur pemerintahan DKI, bukan sekedar nyebut Jakarta
+    return t.includes('jakarta') && (
+      t.includes('pemprov') || t.includes('dki') || t.includes('gubernur') || t.includes('dprd') || 
+      t.includes('balai kota') || t.includes('walikota') || t.includes('pemkot') || t.includes('pramono') ||
+      t.includes('dinas') || t.includes('dishub') || t.includes('disdik') || t.includes('satpol pp')
     );
   }
-  if (topicId === 'puan') return t.includes('puan');
-  if (topicId === 'pdip') return t.includes('pdip') || t.includes('pdi perjuangan');
-  if (topicId === 'jakarta') return t.includes('jakarta') || t.includes('dki');
-  if (topicId === 'bencana') return t.includes('gempa') || t.includes('banjir') || t.includes('bencana') || t.includes('erupsi') || t.includes('longsor') || t.includes('bmkg');
-
+  if (topicId === 'megawati') {
+    // BOOST MEGA - longgarin
+    return t.includes('megawati') || t.includes('bu mega') || t.includes('ibu mega') || 
+           t.includes('ketum pdip') || t.includes('ketua umum pdi') || t.includes('ketum pdi') ||
+           t.includes('megawati soekarno') || t.includes('megawati soekarno putri');
+  }
+  if (topicId === 'puan') {
+    // BOOST PUAN - longgarin
+    return t.includes('puan') || t.includes('puan maharani') || 
+           (t.includes('ketua dpr') && (t.includes('puan') || true)) || // ketua DPR pasti Puan
+           t.includes('ketua dpr ri');
+  }
   if (topicId === 'kritik_publik') {
-    const hasKritik = t.includes('kritik') || t.includes('kecam') || t.includes('protes') || t.includes('demo') || t.includes('unjuk rasa') || t.includes('aksi') || t.includes('soroti') || t.includes('desak') || t.includes('pertanyakan') || t.includes('tolak');
-    const hasTarget = t.includes('pemerintah') || t.includes('kebijakan') || t.includes('politik') || t.includes('sosial') || t.includes('dpr') || t.includes('dprd') || t.includes('mahasiswa') || t.includes('menteri') || t.includes('presiden') || t.includes('negara') || t.includes('publik') || t.includes('rakyat');
-    return hasKritik && hasTarget;
+    // BOOST KRITIK - demo, unjuk rasa, protes semua masuk
+    const hasAksi = t.includes('kritik') || t.includes('demo') || t.includes('unjuk rasa') || t.includes('unjukrasa') ||
+                    t.includes('protes') || t.includes('kecam') || t.includes('soroti') || t.includes('tolak') ||
+                    t.includes('desak') || t.includes('aksi massa') || t.includes('aksi');
+    // target gak wajib ketat, tapi kalau ada aksi udah cukup
+    return hasAksi;
   }
-  if (topicId === 'dedi_mulyadi') {
-    return t.includes('dedi mulyadi') || t.includes('kdm') || t.includes('gubernur jawa barat') || t.includes('gubernur jabar') || t.includes('kang dedi');
-  }
-  if (topicId === 'keluarga_jokowi') {
-    return t.includes('jokowi') || t.includes('joko widodo') || t.includes('gibran') || t.includes('bobby nasution') || t.includes('bobby') && t.includes('nasution') || t.includes('kahiyang') || t.includes('kaesang') || t.includes('jan ethes') || t.includes('keluarga jokowi') || t.includes('psi');
-  }
-  if (topicId === 'homeless_media') {
-    // Karena ini scraping IG via Google, kita anggap semua hasil dari query tersebut relevan
-    // Tapi tetap filter biar gak nyangkut berita random
-    const keywords = ['totalpolitik','pinterpolitik','asumsi','narasi','matanajwa','watchdoc','mojok','tirto','katadata','multatuli','magdalene','konde','mongabay','vice','folkative','volkx','ussfeed','context','historia','geotimes','rembuk','politiksantuy','bijakpolitik','memepolitik','lambe','bintang emon','ferry irwandi','malaka','pandji','tajukmiring','kompas','detik','cnn indonesia','kumparan','tempo','liputan6','idntimes','tribunnews','inilah','asumsi','narasi'];
-    return keywords.some(k => t.includes(k)) || true; // true = lolos semua dari query, biar banyak
-  }
+  if (topicId === 'pdip') return t.includes('pdip') || t.includes('pdi perjuangan');
+  if (topicId === 'bencana') return t.includes('gempa') || t.includes('banjir') || t.includes('bencana') || t.includes('erupsi') || t.includes('longsor') || t.includes('bmkg');
+  if (topicId === 'dedi_mulyadi') return t.includes('dedi mulyadi') || t.includes('kdm') || t.includes('gubernur jawa barat') || t.includes('gubernur jabar') || t.includes('kang dedi');
+  if (topicId === 'keluarga_jokowi') return t.includes('jokowi') || t.includes('gibran') || t.includes('bobby nasution') || t.includes('kahiyang') || t.includes('kaesang') || t.includes('psi');
+  if (topicId === 'homeless_media') return true;
   return true;
 }
 
 async function fetchGoogleNewsRSS(topicId, hours) {
+  // JAKARTA DIPANGKAS JAMNYA, MEGA/PUAN/KRITIK DI-BOOST JAMNYA
+  let hoursForTopic = hours;
+  if (topicId === 'jakarta') hoursForTopic = 1; // Jakarta selalu 1 jam aja biar kecil
+  if (['megawati','puan','kritik_publik'].includes(topicId)) hoursForTopic = 24; // 3 menu ini selalu 24 jam biar gede
+
   const baseQuery = TOPIC_QUERIES[topicId] || topicId;
-  const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(baseQuery + ` when:${hours}h`)}&hl=id&gl=ID&ceid=ID:id`;
+  const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(baseQuery + ` when:${hoursForTopic}h`)}&hl=id&gl=ID&ceid=ID:id`;
   try {
     const res = await fetch(rssUrl, { headers: { 'User-Agent': 'Mozilla/5.0' }, next: { revalidate: 60 }, cache: 'no-store' });
     if (!res.ok) throw new Error('RSS fail');
@@ -101,7 +103,7 @@ async function fetchGoogleNewsRSS(topicId, hours) {
       const source = $(el).find('source').text() || titleFull.split(' - ').pop() || 'Google News';
       const pubDate = new Date(pubDateStr);
       const minutesAgo = isNaN(pubDate.getTime()) ? 9999 : Math.floor((Date.now() - pubDate.getTime()) / 60000);
-      if (minutesAgo > hours * 60 + 60) return;
+      if (minutesAgo > hoursForTopic * 60 + 60) return;
       const cleanTitle = titleFull.split(' - ')[0] || titleFull;
       if (!isRelevant(cleanTitle, topicId)) return;
       items.push({
@@ -115,7 +117,11 @@ async function fetchGoogleNewsRSS(topicId, hours) {
       });
     });
     items.sort((a,b) => a.minutesAgo - b.minutesAgo);
-    return items.slice(0,200);
+    
+    // PANGKAS JAKARTA MAX 15, YANG LAIN BOLEH 200
+    if (topicId === 'jakarta') return items.slice(0,15);
+    if (['megawati','puan','kritik_publik'].includes(topicId)) return items.slice(0,200);
+    return items.slice(0,60);
   } catch (e) { return []; }
 }
 
@@ -125,7 +131,7 @@ async function fetchBMKG() {
     const json = await res.json();
     const info = json?.Infogempa?.gempa;
     if (!info) return null;
-    return { id: 'bmkg-1', source: 'BMKG', time: 'Baru saja', minutesAgo: 0, title: `Gempa M ${info.Magnitude} ${info.Wilayah}`, url: 'https://www.bmkg.go.id', link: 'https://www.bmkg.go.id', isBMKG: true };
+    return { id: 'bmkg-1', source: 'BMKG', time: 'Baru saja', minutesAgo: 0, title: `Gempa M ${info.Magnitude} ${info.Wilayah}`, url: 'https://www.bmkg.go.id', link: 'https://www.bmkg.go.id' };
   } catch { return null; }
 }
 
@@ -149,11 +155,11 @@ export async function GET(req) {
       title: TOPIC_META[id].title,
       icon: TOPIC_META[id].icon,
       volume: `${headlines.length} berita`,
-      lastUpdate: `dalam ${hours} jam terakhir`,
+      lastUpdate: id === 'jakarta' ? 'dipangkas max 15' : (['megawati','puan','kritik_publik'].includes(id) ? `dalam 24 jam (boost)` : `dalam ${hours} jam terakhir`),
       headlines: headlines.slice(0,200),
+      isPriority: ['megawati','puan','kritik_publik'].includes(id),
     };
   }));
 
   return NextResponse.json({ success: true, filter: filterRaw, hours, lastSync: new Date().toISOString(), topics: results });
 }
-
