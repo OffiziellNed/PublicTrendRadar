@@ -34,12 +34,12 @@ export default function AgoraVadaPortal() {
   const [selectedHeadline, setSelectedHeadline] = useState(null);
   const [trendLoading, setTrendLoading] = useState(false);
   const [trendTopics, setTrendTopics] = useState([
-    { id: 'jakarta', title: 'Jakarta', icon: '🏙️', volume: '0 berita', velocity: '+0%', sentiment: 'Campur', sentimentColor: '#eab308', lastUpdate: '-', headlines: [] },
-    { id: 'nasional', title: 'Berita Nasional', icon: '📰', volume: '0 berita', velocity: '+0%', sentiment: 'Netral', sentimentColor: '#8b949e', lastUpdate: '-', headlines: [] },
-    { id: 'bencana', title: 'Bencana Terkini', icon: '🌋', volume: '0 berita', velocity: '+0%', sentiment: 'Negatif', sentimentColor: '#ef4444', lastUpdate: '-', headlines: [] },
-    { id: 'pdip', title: 'PDI Perjuangan', icon: '🐂', volume: '0 berita', velocity: '+0%', sentiment: 'Negatif', sentimentColor: '#ef4444', lastUpdate: '-', headlines: [] },
-    { id: 'megawati', title: 'Megawati Soekarnoputri', icon: '👩‍🦳', volume: '0 berita', velocity: '+0%', sentiment: 'Campur', sentimentColor: '#eab308', lastUpdate: '-', headlines: [] },
-    { id: 'puan', title: 'Puan Maharani', icon: '👩‍💼', volume: '0 berita', velocity: '+0%', sentiment: 'Positif', sentimentColor: '#22c55e', lastUpdate: '-', headlines: [] },
+    { id: 'jakarta', title: 'Jakarta', icon: '🏙️', volume: '0 berita', lastUpdate: '-', headlines: [] },
+    { id: 'nasional', title: 'Berita Nasional', icon: '📰', volume: '0 berita', lastUpdate: '-', headlines: [] },
+    { id: 'bencana', title: 'Bencana Terkini', icon: '🌋', volume: '0 berita', lastUpdate: '-', headlines: [] },
+    { id: 'pdip', title: 'PDI Perjuangan', icon: '🐂', volume: '0 berita', lastUpdate: '-', headlines: [] },
+    { id: 'megawati', title: 'Megawati Soekarnoputri', icon: '👩‍🦳', volume: '0 berita', lastUpdate: '-', headlines: [] },
+    { id: 'puan', title: 'Puan Maharani', icon: '👩‍💼', volume: '0 berita', lastUpdate: '-', headlines: [] },
   ]);
 
   useEffect(() => {
@@ -209,8 +209,7 @@ export default function AgoraVadaPortal() {
                       <div><div style={{ fontWeight: '700', fontSize: '15px' }}>{topic.title}</div><div className="mono" style={{ fontSize: '11px', color: '#8b949e' }}>{topic.volume} • {topic.lastUpdate}</div></div>
                     </div>
                     <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
-                      <div className="mono" style={{ fontSize: '11px', backgroundColor: '#0d1117', border: '1px solid #30363d', padding: '4px 8px', borderRadius: '6px' }}>{topic.volume}</div>
-                      <div style={{ fontSize: '11px', backgroundColor: '#0d1117', border: '1px solid #30363d', padding: '4px 8px', borderRadius: '6px', color: topic.sentimentColor }}>{topic.sentiment}</div>
+                      <div className="mono" style={{ fontSize: '11px', backgroundColor: '#0d1117', border: '1px solid #30363d', padding: '4px 8px', borderRadius: '6px', color: '#c9d1d9' }}>{topic.volume}</div>
                     </div>
                     <div style={{ marginBottom: '14px' }}>
                       {sortedPreview.slice(0, 2).map(h => (
