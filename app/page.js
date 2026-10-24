@@ -78,71 +78,6 @@ export default function AgoraVadaPortal() {
     fetchRadar();
   }, [currentPage, trendTimeFilter]);
 
-  const renderRichText = (ctx, htmlString, x, y, maxWidth, lineHeight, baseFontSize) => {
-    if (!htmlString || typeof document === 'undefined') return;
-    ctx.textBaseline = 'top';
-    let cleanHTML = htmlString.replace(/<div[^>]*><br><\/div>/gi, '\n').replace(/<div[^>]*>/gi, '\n').replace(/<\/div>/gi, '').replace(/<br\s*\/?>/gi, '\n');
-    const tempDiv = document.createElement('div'); tempDiv.innerHTML = cleanHTML;
-    let wordsWithContext = [];
-    const extract = (node, cur) => {
-      if (node.nodeType === 3) {
-        node.textContent.split('\n').forEach((t, i) => {
-          if (i > 0) wordsWithContext.push({ isNewline: true });
-          t.split(/\s+/).forEach(w => { if (w.trim()) wordsWithContext.push({ word: w.trim(), ...cur }); });
-        });
-      } else if (node.nodeType === 1) {
-        let nc = { ...cur };
-        if (node.tagName === 'I' || node.tagName === 'EM') nc.isItalic = true;
-        if (node.style?.color) nc.color = node.style.color;
-        if (node.tagName === 'FONT' && node.getAttribute('color')) nc.color = node.getAttribute('color');
-        node.childNodes.forEach(c => extract(c, nc));
-      }
-    };
-    extract(tempDiv, { color: '#FFFFFF', isItalic: false });
-    let lines = [], curLine = [], curW = 0;
-    const baseF = 'PoppinsSemiBold'; const italicF = 'PoppinsSemiBoldItalic';
-    ctx.font = baseFontSize + 'px ' + baseF + ', sans-serif';
-    const spW = ctx.measureText(' ').width;
-    wordsWithContext.forEach(item => {
-      if (item.isNewline) { lines.push(curLine); curLine = []; curW = 0; }
-      else {
-        const fn = item.isItalic ? italicF : baseF;
-        ctx.font = baseFontSize + 'px ' + fn + ', sans-serif';
-        const wW = ctx.measureText(item.word).width;
-        if (curW + wW > maxWidth && curLine.length > 0) { lines.push(curLine); curLine = [item]; curW = wW + spW; }
-        else { curLine.push(item); curW += wW + spW; }
-      }
-    });
-    if (curLine.length) lines.push(curLine);
-    let curY = y;
-    lines.forEach((lineArr) => {
-      let curX = x;
-      lineArr.forEach(it => {
-        const fn = it.isItalic ? italicF : baseF;
-        ctx.font = baseFontSize + 'px ' + fn + ', sans-serif';
-        ctx.fillStyle = it.color || '#FFFFFF';
-        ctx.fillText(it.word, curX, curY);
-        curX += ctx.measureText(it.word).width + spW;
-      });
-      curY += lineHeight;
-    });
-  };
-  const renderCanvas = (ctx, canvas, showMarginGuide = true) => {
-    if (!ctx || !canvas) return;
-    ctx.fillStyle = '#111827'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-    if (loadedBgImg) { const dw = loadedBgImg.width * imgScale; const dh = loadedBgImg.height * imgScale; ctx.drawImage(loadedBgImg, imgX, imgY, dw, dh); }
-    if (templateImgObj) ctx.drawImage(templateImgObj, 0, 0, canvas.width, canvas.height);
-    if (showMarginGuide) { ctx.save(); ctx.strokeStyle = 'rgba(139,148,158,0.5)'; ctx.setLineDash([10, 8]); ctx.lineWidth = 1.5; ctx.strokeRect(MARGIN_PX, MARGIN_PX, canvas.width - MARGIN_PX * 2, canvas.height - MARGIN_PX * 2); ctx.restore(); }
-    const lh = ukuranFont * jarakBaris;
-    renderRichText(ctx, judulHtml, teksX, teksY, 1080 - teksX - MARGIN_PX, lh, ukuranFont);
-    if (sumberBerita) { ctx.fillStyle = sumberColor; ctx.font = ukuranFontSumber + 'px PoppinsSemiBoldItalic, sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText(sumberBerita, sumberX, sumberY); }
-  };
-  useEffect(() => {
-    if (currentPage !== 3) return;
-    const c = canvasRef.current; if (!c) return;
-    const ctx = c.getContext('2d'); if (ctx) renderCanvas(ctx, c, true);
-  }, [currentPage, loadedBgImg, templateImgObj, imgX, imgY, imgScale, teksX, teksY, ukuranFont, jarakBaris, sumberX, sumberY, ukuranFontSumber, judulHtml, sumberBerita]);
-
   const openDetail = (topic) => { 
     const sorted = [...(topic.headlines||[])].sort((a,b)=> (a.minutesAgo||9999)-(b.minutesAgo||9999)).slice(0,200);
     setSelectedTopic({...topic, headlines: sorted}); 
@@ -179,6 +114,7 @@ export default function AgoraVadaPortal() {
                 <div style={{ padding: '6px 14px', borderRadius: '20px', fontSize: '11px', backgroundColor: '#161b22', border: '1px solid #30363d', color: '#22c55e' }} className="mono">● LIVE {trendLoading ? 'sync...' : 'ON'}</div>
               </div>
             </div>
+            {/* GRID NORMAL 3 KOLOM - SEMUA BOARD SAMA UKURAN */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', backgroundColor: '#0a0a0f', alignItems: 'stretch' }}>
               {trendTopics.map(topic => {
                 const sortedPreview = [...(topic.headlines||[])].sort((a,b)=> (a.minutesAgo||9999)-(b.minutesAgo||9999));
@@ -186,13 +122,12 @@ export default function AgoraVadaPortal() {
                 return (
                   <div key={topic.id} style={{ 
                     backgroundColor: '#161b22', 
-                    border: `1px solid ${isHomeless ? '#f97316' : '#30363d'}`, 
+                    border: '1px solid #30363d', 
                     borderRadius: '16px', 
                     padding: '18px', 
                     display: 'flex', 
                     flexDirection: 'column', 
-                    minHeight: '210px',
-                    gridColumn: isHomeless ? '2 / span 1' : 'auto'
+                    minHeight: '210px'
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
                       <div style={{ width: '48px', height: '48px', backgroundColor: '#0d1117', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', border: '1px solid #30363d' }}>{topic.icon}</div>
@@ -250,7 +185,6 @@ export default function AgoraVadaPortal() {
             )}
           </div>
         )}
-        {currentPage !== 0 && (<div style={{ backgroundColor: '#161b22', border: '1px solid #30363d', borderRadius: '16px', padding: '24px' }}><button onClick={()=>setCurrentPage(0)} style={{ padding: '8px 12px', backgroundColor: '#21262d', border: '1px solid #30363d', color: '#fff', borderRadius: '8px', cursor: 'pointer' }}>← Kembali ke Trend Radar</button></div>)}
       </div>
     </div>
   );
