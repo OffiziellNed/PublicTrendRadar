@@ -1,21 +1,22 @@
 import { NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 
-// 11 MENU - BALANCE REAL - FIX SOSIAL & KRIMINAL KOSONG - NO FALLBACK
+// 11 MENU - CRITERIA LENGKAP - SOSIAL VIRAL + KRIMINAL + FIX MEGAWATI ATLET
 const TOPIC_QUERIES = {
   jakarta: 'Jakarta OR DKI Jakarta OR Pemprov DKI',
   nasional: 'berita nasional Indonesia',
   bencana: 'bencana OR gempa OR banjir OR longsor OR erupsi',
   pdip: 'PDIP OR PDI Perjuangan',
-  megawati: 'Megawati Soekarnoputri OR Megawati',
+  // FIX MEGAWATI: jangan pakai kata Megawati doang, harus ada konteks politik
+  megawati: 'Megawati Soekarnoputri OR Ketua Umum PDIP OR Bu Mega PDIP',
   puan: 'Puan Maharani',
   kritik_publik: 'kritik pemerintah OR demo OR unjuk rasa OR protes publik',
   dedi_mulyadi: 'Dedi Mulyadi OR KDM',
   keluarga_jokowi: 'Jokowi OR Gibran OR Kaesang OR Keluarga Jokowi',
-  // FIX SOSIAL: query broad yang pasti ada tiap jam, jangan pakai frase aneh
-  sosial: '(viral OR kisah inspiratif OR cerita unik OR video viral OR tiktok viral OR kejadian unik OR kisah haru OR tradisi unik OR fenomena unik OR driver ojol OR nenek viral)',
-  // FIX KRIMINAL: query pendek, filter longgar biar gak 1 berita doang
-  kriminal: '(kriminal OR pembunuhan OR narkoba OR sabu OR perampokan OR pencurian OR begal OR KDRT OR pemerkosaan OR penipuan OR tawuran)',
+  // SOSIAL & VIRAL - KRITERIA LENGKAP
+  sosial: '(viral OR fenomena sosial OR curhatan netizen OR curhat viral OR video viral OR kisah haru OR kisah mengharukan OR cerita unik OR fenomena aneh OR anomali OR inspiratif OR kisah inspiratif OR tradisi unik OR kejadian lucu OR video lucu OR tingkah aneh OR kelakuan unik OR driver ojol OR ojek online OR nenek viral OR kakek viral OR netizen heboh OR tiktok viral OR viral medsos)',
+  // KRIMINAL - KRITERIA LENGKAP
+  kriminal: '(kriminal OR pembunuhan OR pembunuhan sadis OR narkoba OR sabu OR ganja OR ekstasi OR pengedaran narkoba OR curanmor OR maling OR pencurian OR curat OR curas OR perampokan OR begal OR jambret OR todong OR penodongan OR KDRT OR kekerasan rumah tangga OR penganiayaan OR pengeroyokan OR pembacokan OR penembakan OR pemerkosaan OR pelecehan seksual OR penipuan OR penggelapan OR mayat ditemukan OR mutilasi OR tawuran OR pengrusakan OR korupsi)',
 };
 
 const TOPIC_META = {
@@ -66,7 +67,6 @@ function clusterHeadlines(headlines, threshold=0.38){
 async function fetchRSS(topicId, hours){
   try{
     let q = TOPIC_QUERIES[topicId];
-    // FIX: bungkus query pakai kurung + when di luar kurung biar Google News gak bingung
     const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(q)}+when%3A${hours}h&hl=id&gl=ID&ceid=ID:id`;
     const res = await fetch(rssUrl, { headers: { 'User-Agent': 'Mozilla/5.0' }, cache: 'no-store' });
     if(!res.ok) return [];
@@ -78,22 +78,25 @@ async function fetchRSS(topicId, hours){
       const { titleFull, linkRaw, pubDateStr, source } = rawItems[i];
       const pubDate = new Date(pubDateStr);
       const minutesAgo = isNaN(pubDate.getTime()) ? 9999 : Math.floor((Date.now()-pubDate.getTime())/60000);
-      if(minutesAgo > hours*60 + 180) continue; // toleransi 3 jam
+      if(minutesAgo > hours*60 + 180) continue;
       const cleanTitle = (titleFull.split(' - ')[0] || titleFull).trim();
       if(!cleanTitle) continue;
       const t = cleanTitle.toLowerCase();
 
-      // Filter ketat cuma untuk 3 menu politik yang gampang bocor, sisanya biarin loss biar balance
+      // FILTER MEGAWATI - HAPUS ATLET VOLI
+      if(topicId==='megawati'){
+        const atletKeywords = ['voli','volley','pevoli','hangestri','red sparks','megatron','proliga','timnas voli','atlet voli','voli putri','megawati hangestri','megawati manise'];
+        if(atletKeywords.some(k => t.includes(k))) continue;
+        // harus ada konteks politik PDIP kalau cuma "mega"
+        if(!(t.includes('megawati') || t.includes('ketua umum pdip') || t.includes('pdip') || t.includes('bu mega'))) continue;
+      }
+
       if(topicId==='jakarta' && !(t.includes('jakarta')||t.includes('dki'))) continue;
-      if(topicId==='megawati' && !(t.includes('megawati')||t.includes('mega'))) continue;
       if(topicId==='puan' && !t.includes('puan')) continue;
-      // kriminal & sosial JANGAN di-filter ketat lagi - biar balance
 
       items.push({ id:`${topicId}-${i}`, source:(source||'Google News').slice(0,30), time:formatTimeAgo(minutesAgo), minutesAgo, title:cleanTitle, url:linkRaw.replace(/&amp;/g,'&'), link:linkRaw.replace(/&amp;/g,'&') });
     }
     items.sort((a,b)=>a.minutesAgo-b.minutesAgo);
-
-    // BALANCE: batasi max 20 per menu biar gak jomplang 40 vs 1
     return items.slice(0,20);
   }catch{ return []; }
 }
@@ -117,7 +120,7 @@ export async function GET(req){
         title: TOPIC_META[id].title,
         icon: TOPIC_META[id].icon,
         volume: `${headlines.length} berita • ${clustered.length} isu`,
-        lastUpdate: `dalam ${hours} jam terakhir - REAL`,
+        lastUpdate: `dalam ${hours} jam - REAL`,
         headlines,
         clusters: clustered,
       };
