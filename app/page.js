@@ -37,13 +37,14 @@ export default function AgoraVadaPortal() {
   const [selectedHeadline, setSelectedHeadline] = useState(null);
   const [trendLoading, setTrendLoading] = useState(false);
   const [trendTopics, setTrendTopics] = useState([
-    { id: 'jakarta', title: 'Jakarta', icon: '🏙️', volume: '89/jam', velocity: '+45%', sentiment: 'Campur', sentimentColor: '#eab308', lastUpdate: '2 menit lalu', headlines: [] },
-    { id: 'nasional', title: 'Berita Nasional', icon: '📰', volume: '210/jam', velocity: '+12%', sentiment: 'Netral', sentimentColor: '#8b949e', lastUpdate: '5 menit lalu', headlines: [] },
-    { id: 'bencana', title: 'Bencana Terkini', icon: '🌋', volume: '34/jam', velocity: '+230%', sentiment: 'Negatif', sentimentColor: '#ef4444', lastUpdate: '1 menit lalu', headlines: [] },
-    { id: 'pdip', title: 'PDI Perjuangan', icon: '🐂', volume: '67/jam', velocity: '+89%', sentiment: 'Negatif 72%', sentimentColor: '#ef4444', lastUpdate: '4 menit lalu', headlines: [] },
-    { id: 'megawati', title: 'Megawati Soekarnoputri', icon: '👩‍🦳', volume: '41/jam', velocity: '+15%', sentiment: 'Campur', sentimentColor: '#eab308', lastUpdate: '12 menit lalu', headlines: [] },
-    { id: 'puan', title: 'Puan Maharani', icon: '👩‍💼', volume: '28/jam', velocity: '+5%', sentiment: 'Positif 54%', sentimentColor: '#22c55e', lastUpdate: '18 menit lalu', headlines: [] },
+    { id: 'jakarta', title: 'Jakarta', icon: '🏙️', volume: '0 berita', velocity: '+0%', sentiment: 'Campur', sentimentColor: '#eab308', lastUpdate: '-', headlines: [] },
+    { id: 'nasional', title: 'Berita Nasional', icon: '📰', volume: '0 berita', velocity: '+0%', sentiment: 'Netral', sentimentColor: '#8b949e', lastUpdate: '-', headlines: [] },
+    { id: 'bencana', title: 'Bencana Terkini', icon: '🌋', volume: '0 berita', velocity: '+0%', sentiment: 'Negatif', sentimentColor: '#ef4444', lastUpdate: '-', headlines: [] },
+    { id: 'pdip', title: 'PDI Perjuangan', icon: '🐂', volume: '0 berita', velocity: '+0%', sentiment: 'Negatif', sentimentColor: '#ef4444', lastUpdate: '-', headlines: [] },
+    { id: 'megawati', title: 'Megawati Soekarnoputri', icon: '👩‍🦳', volume: '0 berita', velocity: '+0%', sentiment: 'Campur', sentimentColor: '#eab308', lastUpdate: '-', headlines: [] },
+    { id: 'puan', title: 'Puan Maharani', icon: '👩‍💼', volume: '0 berita', velocity: '+0%', sentiment: 'Positif', sentimentColor: '#22c55e', lastUpdate: '-', headlines: [] },
   ]);
+
   useEffect(() => {
     const tImg = new Image();
     tImg.src = '/Agora Vada Template.png';
@@ -56,6 +57,7 @@ export default function AgoraVadaPortal() {
     img.onload = () => setLoadedBgImg(img);
     img.src = imageUrl;
   }, [imageUrl]);
+
   useEffect(() => {
     if (currentPage !== 0) return;
     const fetchRadar = async () => {
@@ -63,12 +65,20 @@ export default function AgoraVadaPortal() {
       try {
         const res = await fetch(`/api/trend-radar?filter=${encodeURIComponent(trendTimeFilter)}`, { cache: 'no-store' });
         const data = await res.json();
-        if (data?.topics?.length) setTrendTopics(data.topics);
+        if (data?.topics?.length) {
+          // SORT TERBARU DI ATAS
+          const sortedTopics = data.topics.map(t => ({
+            ...t,
+            headlines: [...(t.headlines || [])].sort((a,b) => (a.minutesAgo||9999) - (b.minutesAgo||9999))
+          }));
+          setTrendTopics(sortedTopics);
+        }
       } catch (e) {}
       finally { setTrendLoading(false); }
     };
     fetchRadar();
   }, [currentPage, trendTimeFilter]);
+
   const renderRichText = (ctx, htmlString, x, y, maxWidth, lineHeight, baseFontSize) => {
     if (!htmlString || typeof document === 'undefined') return;
     ctx.textBaseline = 'top';
@@ -118,6 +128,7 @@ export default function AgoraVadaPortal() {
       curY += lineHeight;
     });
   };
+
   const renderCanvas = (ctx, canvas, showMarginGuide = true) => {
     if (!ctx || !canvas) return;
     ctx.fillStyle = '#111827'; ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -128,11 +139,13 @@ export default function AgoraVadaPortal() {
     renderRichText(ctx, judulHtml, teksX, teksY, 1080 - teksX - MARGIN_PX, lh, ukuranFont);
     if (sumberBerita) { ctx.fillStyle = sumberColor; ctx.font = ukuranFontSumber + 'px PoppinsSemiBoldItalic, sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText(sumberBerita, sumberX, sumberY); }
   };
+
   useEffect(() => {
     if (currentPage !== 3) return;
     const c = canvasRef.current; if (!c) return;
     const ctx = c.getContext('2d'); if (ctx) renderCanvas(ctx, c, true);
   }, [currentPage, loadedBgImg, templateImgObj, imgX, imgY, imgScale, teksX, teksY, ukuranFont, jarakBaris, sumberX, sumberY, ukuranFontSumber, judulHtml, sumberBerita]);
+
   const handleMouseDown = (e) => { setIsDragging(true); const cx = e.clientX || e.touches?.[0]?.clientX; const cy = e.clientY || e.touches?.[0]?.clientY; setDragStart({ x: cx - imgX, y: cy - imgY }); };
   const handleMouseMove = (e) => { if (!isDragging) return; const cx = e.clientX || e.touches?.[0]?.clientX; const cy = e.clientY || e.touches?.[0]?.clientY; setImgX(cx - dragStart.x); setImgY(cy - dragStart.y); };
   const handleMouseUp = () => setIsDragging(false);
@@ -159,77 +172,108 @@ export default function AgoraVadaPortal() {
       alert('Berhasil publish IG!'); setCurrentPage(3);
     } catch (err) { alert('Gagal: ' + err.message); } finally { setIsUploading(false); }
   };
-  const openDetail = (topic) => { setSelectedTopic(topic); setShowDetail(true); setSelectedHeadline(null); };
+  const openDetail = (topic) => { 
+    const sorted = [...(topic.headlines||[])].sort((a,b)=> (a.minutesAgo||9999)-(b.minutesAgo||9999));
+    setSelectedTopic({...topic, headlines: sorted}); 
+    setShowDetail(true); 
+    setSelectedHeadline(null); 
+  };
   const handleJadikanBerita = () => {
     if (!selectedHeadline) return alert('Pilih 1 berita dulu');
     setUrlBerita(selectedHeadline.url); setSumberBerita(selectedHeadline.source);
     setCurrentPage(1); setShowDetail(false);
   };
+
   return (
     <div style={{ width: '100%', minHeight: '100vh', backgroundColor: '#0a0a0f', color: '#fff' }}>
-      <style>{`@import url("https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap"); *{font-family:'Geist',sans-serif} .mono{font-family:'Geist Mono',monospace}`}</style>
-      <div style={{ width: '100%', maxWidth: currentPage === 0 ? '1280px' : '950px', margin: '0 auto', padding: '20px' }}>
+      <style>{`
+        html, body { background-color: #0a0a0f !important; margin:0; padding:0; overscroll-behavior: none; }
+        * { font-family: 'Geist', sans-serif; scrollbar-width: thin; scrollbar-color: #30363d #0a0a0f; }
+        .mono{font-family:'Geist Mono',monospace}
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #0a0a0f; }
+        ::-webkit-scrollbar-thumb { background: #30363d; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #484f58; }
+        @import url("https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap");
+      `}</style>
+      <div style={{ width: '100%', maxWidth: currentPage === 0 ? '1280px' : '950px', margin: '0 auto', padding: '20px', backgroundColor: '#0a0a0f', minHeight: '100vh' }}>
         {currentPage !== 0 && (<div style={{ textAlign: 'center', marginBottom: '20px' }}><h1 style={{ fontSize: '20px', fontWeight: '800' }}>⚡ AGORA VADA</h1></div>)}
         {currentPage === 0 && (
-          <div>
+          <div style={{ backgroundColor: '#0a0a0f' }}>
             <div style={{ textAlign: 'center', marginBottom: '32px' }}>
               <h2 style={{ fontSize: '32px', fontWeight: '800' }}>Public Trend Radar</h2>
               <p style={{ color: '#8b949e', fontSize: '14px', marginTop: '6px' }}>Monitoring isu publik terupdate.</p>
-              <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'center', gap: '8px' }}>
+              <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'center', gap: '8px', flexWrap: 'wrap' }}>
                 {['1 Jam', '6 Jam', '24 Jam'].map(f => (
                   <button key={f} onClick={() => setTrendTimeFilter(f)} style={{ padding: '6px 14px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', border: '1px solid #30363d', backgroundColor: trendTimeFilter === f ? '#fff' : '#161b22', color: trendTimeFilter === f ? '#000' : '#c9d1d9', cursor: 'pointer' }}>{f}</button>
                 ))}
                 <div style={{ padding: '6px 14px', borderRadius: '20px', fontSize: '11px', backgroundColor: '#161b22', border: '1px solid #30363d', color: '#22c55e' }} className="mono">● LIVE {trendLoading ? 'sync...' : 'ON'}</div>
               </div>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(320px,1fr))', gap: '16px' }}>
-              {trendTopics.map(topic => (
-                <div key={topic.id} style={{ backgroundColor: '#161b22', border: '1px solid #30363d', borderRadius: '16px', padding: '18px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-                    <div style={{ width: '48px', height: '48px', backgroundColor: '#0d1117', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', border: '1px solid #30363d' }}>{topic.icon}</div>
-                    <div><div style={{ fontWeight: '700', fontSize: '15px' }}>{topic.title}</div><div className="mono" style={{ fontSize: '11px', color: '#8b949e' }}>{topic.volume} • {topic.lastUpdate}</div></div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(320px,1fr))', gap: '16px', backgroundColor: '#0a0a0f' }}>
+              {trendTopics.map(topic => {
+                const sortedPreview = [...(topic.headlines||[])].sort((a,b)=> (a.minutesAgo||9999)-(b.minutesAgo||9999));
+                return (
+                  <div key={topic.id} style={{ backgroundColor: '#161b22', border: '1px solid #30363d', borderRadius: '16px', padding: '18px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+                      <div style={{ width: '48px', height: '48px', backgroundColor: '#0d1117', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', border: '1px solid #30363d' }}>{topic.icon}</div>
+                      <div><div style={{ fontWeight: '700', fontSize: '15px' }}>{topic.title}</div><div className="mono" style={{ fontSize: '11px', color: '#8b949e' }}>{topic.volume} • {topic.lastUpdate}</div></div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+                      <div className="mono" style={{ fontSize: '11px', backgroundColor: '#0d1117', border: '1px solid #30363d', padding: '4px 8px', borderRadius: '6px' }}>Vol {topic.volume}</div>
+                      <div className="mono" style={{ fontSize: '11px', backgroundColor: '#0d1117', border: '1px solid #30363d', padding: '4px 8px', borderRadius: '6px', color: '#c9d1d9' }}>{topic.velocity} 🔥</div>
+                      <div style={{ fontSize: '11px', backgroundColor: '#0d1117', border: '1px solid #30363d', padding: '4px 8px', borderRadius: '6px', color: topic.sentimentColor }}>{topic.sentiment}</div>
+                    </div>
+                    <div style={{ marginBottom: '14px' }}>
+                      {sortedPreview.slice(0, 2).map(h => (
+                        <div key={h.id} style={{ fontSize: '12px', color: '#8b949e', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: '4px' }}>
+                          • {h.title} <span className="mono" style={{fontSize:'10px', color:'#58a6ff'}}>({h.time})</span>
+                        </div>
+                      ))}
+                    </div>
+                    <button onClick={() => openDetail(topic)} style={{ width: '100%', backgroundColor: '#fff', color: '#000', padding: '10px', borderRadius: '10px', fontWeight: '700', fontSize: '12px', border: 'none', cursor: 'pointer' }}>Cek Sekarang</button>
                   </div>
-                  <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
-                    <div className="mono" style={{ fontSize: '11px', backgroundColor: '#0d1117', border: '1px solid #30363d', padding: '4px 8px', borderRadius: '6px' }}>Vol {topic.volume}</div>
-                    <div className="mono" style={{ fontSize: '11px', backgroundColor: '#0d1117', border: '1px solid #30363d', padding: '4px 8px', borderRadius: '6px', color: '#c9d1d9' }}>{topic.velocity} 🔥</div>
-                    <div style={{ fontSize: '11px', backgroundColor: '#0d1117', border: '1px solid #30363d', padding: '4px 8px', borderRadius: '6px', color: topic.sentimentColor }}>{topic.sentiment}</div>
-                  </div>
-                  <div style={{ marginBottom: '14px' }}>{topic.headlines.slice(0, 2).map(h => (<div key={h.id} style={{ fontSize: '12px', color: '#8b949e', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: '4px' }}>• {h.title}</div>))}</div>
-                  <button onClick={() => openDetail(topic)} style={{ width: '100%', backgroundColor: '#fff', color: '#000', padding: '10px', borderRadius: '10px', fontWeight: '700', fontSize: '12px', border: 'none', cursor: 'pointer' }}>Cek Sekarang</button>
-                </div>
-              ))}
+                );
+              })}
             </div>
+
             {showDetail && selectedTopic && (
-              <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 50, display: 'flex', justifyContent: 'center', padding: '20px', overflowY: 'auto' }}>
-                <div style={{ width: '100%', maxWidth: '800px', backgroundColor: '#0d1117', border: '1px solid #30363d', borderRadius: '16px' }}>
-                  <div style={{ padding: '16px 20px', borderBottom: '1px solid #30363d', display: 'flex', justifyContent: 'space-between' }}>
+              <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(10,10,15,0.92)', zIndex: 50, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', padding: '20px', overflowY: 'auto' }}>
+                <div style={{ width: '100%', maxWidth: '720px', backgroundColor: '#0d1117', border: '1px solid #30363d', borderRadius: '16px', maxHeight: '85vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                  <div style={{ padding: '16px 20px', borderBottom: '1px solid #30363d', display: 'flex', justifyContent: 'space-between', flexShrink: 0, backgroundColor: '#0d1117' }}>
                     <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                       <button onClick={() => setShowDetail(false)} style={{ backgroundColor: '#21262d', border: '1px solid #30363d', color: '#fff', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' }}>← Kembali</button>
                       <div style={{ fontWeight: '800' }}>{selectedTopic.icon} {selectedTopic.title}</div>
-                      <div className="mono" style={{ fontSize: '11px', color: '#8b949e' }}>{trendTimeFilter} • {selectedTopic.headlines.length} berita</div>
+                      <div className="mono" style={{ fontSize: '11px', color: '#8b949e' }}>{trendTimeFilter} • {selectedTopic.headlines.length} berita • terbaru di atas</div>
                     </div>
                     <button onClick={() => setShowDetail(false)} style={{ background: 'none', border: 'none', color: '#8b949e', fontSize: '20px', cursor: 'pointer' }}>×</button>
                   </div>
-                  <div style={{ padding: '16px' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '65vh', overflowY: 'auto' }}>
+                  
+                  <div style={{ padding: '16px', flex: 1, overflowY: 'auto', backgroundColor: '#0d1117' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                       {selectedTopic.headlines.map(h => {
                         const isSelected = selectedHeadline && selectedHeadline.id === h.id;
                         return (
                           <div key={h.id} onClick={() => setSelectedHeadline(h)} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px', borderRadius: '10px', backgroundColor: isSelected ? '#1f6feb20' : '#161b22', border: `1px solid ${isSelected ? '#1f6feb' : '#30363d'}`, cursor: 'pointer' }}>
                             <input type="radio" name="singleHeadline" checked={isSelected} readOnly style={{ accentColor: '#1f6feb' }} />
                             <div style={{ flex: 1 }}>
-                              <div style={{ fontSize: '10px' }} className="mono">{h.source} • {h.time}</div>
-                              <div style={{ fontWeight: '600', fontSize: '13px', marginTop: '2px' }}>{h.title}</div>
+                              <div style={{ fontSize: '10px', display:'flex', gap:'8px' }} className="mono">
+                                <span style={{color:'#58a6ff'}}>{h.time}</span>
+                                <span style={{color:'#8b949e'}}>{h.source}</span>
+                                <span style={{color: h.minutesAgo < 30 ? '#22c55e' : '#8b949e'}}>{h.minutesAgo < 30 ? '● BARU' : ''}</span>
+                              </div>
+                              <div style={{ fontWeight: '600', fontSize: '13px', marginTop: '4px' }}>{h.title}</div>
                               <div style={{ fontSize: '11px', color: '#8b949e', marginTop: '2px' }}>{h.summary}</div>
                             </div>
-                            <a href={h.url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ width: '36px', height: '36px', backgroundColor: '#0d1117', border: '1px solid #30363d', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', fontSize: '16px', cursor: 'pointer' }}>🔗</a>
+                            <a href={h.url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ width: '36px', height: '36px', backgroundColor: '#0d1117', border: '1px solid #30363d', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', fontSize: '16px', cursor: 'pointer', flexShrink:0 }}>🔗</a>
                           </div>
                         );
                       })}
                     </div>
                   </div>
-                  <div style={{ padding: '12px 16px', borderTop: '1px solid #30363d', backgroundColor: '#161b22', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottomLeftRadius: '16px', borderBottomRightRadius: '16px' }}>
-                    <div className="mono" style={{ fontSize: '11px', color: '#8b949e' }}>{selectedHeadline ? `Dipilih: ${selectedHeadline.source}` : 'Pilih 1 berita'}</div>
+
+                  <div style={{ padding: '12px 16px', borderTop: '1px solid #30363d', backgroundColor: '#161b22', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink:0, borderBottomLeftRadius: '16px', borderBottomRightRadius: '16px' }}>
+                    <div className="mono" style={{ fontSize: '11px', color: '#8b949e' }}>{selectedHeadline ? `Dipilih: ${selectedHeadline.time} - ${selectedHeadline.source}` : 'Pilih 1 berita'}</div>
                     <button onClick={handleJadikanBerita} disabled={!selectedHeadline} style={{ padding: '10px 16px', backgroundColor: selectedHeadline ? '#1f6feb' : '#30363d', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: '700', cursor: selectedHeadline ? 'pointer' : 'not-allowed', fontSize: '12px' }}>→ Jadikan Berita</button>
                   </div>
                 </div>
