@@ -49,7 +49,7 @@ function clusterHeadlines(headlines, threshold = 0.38) {
       minutesAgo: main.minutesAgo,
       sources: allSources,
       headlines: cluster,
-      source: cluster.length > 1 ? `${allSources.length} sumber` : main.source,
+      source: main.source, // hanya 1 sumber wakil
     };
   });
 }
@@ -99,7 +99,6 @@ export default function Page() {
       });
     }
     if (groupSimilar) return clusterHeadlines(list);
-    // if not grouped, wrap each as single cluster
     return list.map(h => ({
       id: h.id, isCluster: false, count: 1, title: h.title, mainUrl: h.url, time: h.time, minutesAgo: h.minutesAgo, sources: [h.source], headlines: [h], source: h.source
     }));
@@ -129,19 +128,18 @@ export default function Page() {
 
         <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '16px', paddingBottom: '40px' }}>
           {trendTopics.map(topic => {
-            // show clustered count in volume
-            const clusterCount = topic.clusters ? topic.clusters.length : 0;
             const totalBerita = topic.headlines?.length || 0;
+            const isuCount = topic.clusters ? topic.clusters.length : totalBerita;
             return (
               <div key={topic.id} style={{ width: '320px', maxWidth: '100%', backgroundColor: '#161b22', border: '1px solid #30363d', borderRadius: '16px', padding: '18px', display: 'flex', flexDirection: 'column', minHeight: '210px', flexShrink: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
                   <div style={{ width: '48px', height: '48px', backgroundColor: '#0d1117', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', border: '1px solid #30363d', flexShrink: 0 }}>{topic.icon}</div>
-                  <div style={{ minWidth: 0, flex: 1 }}><div style={{ fontWeight: '700', fontSize: '15px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{topic.title}</div><div className="mono" style={{ fontSize: '11px', color: '#8b949e' }}>{totalBerita} berita • {clusterCount || totalBerita} isu</div></div>
+                  <div style={{ minWidth: 0, flex: 1 }}><div style={{ fontWeight: '700', fontSize: '15px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{topic.title}</div><div className="mono" style={{ fontSize: '11px', color: '#8b949e' }}>{totalBerita} berita • {isuCount} isu</div></div>
                 </div>
                 <div style={{ marginBottom: '14px', flex: 1, minHeight: '44px' }}>
                   {(topic.clusters || topic.headlines)?.slice(0,2).map((c) => {
                     const t = c.title || c.headlines?.[0]?.title;
-                    return <div key={c.id} style={{ fontSize: '12px', color: '#8b949e', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: '4px' }}>• {t} {c.count > 1 ? `(${c.count} sumber)` : ''}</div>
+                    return <div key={c.id} style={{ fontSize: '12px', color: '#8b949e', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: '4px' }}>• {t}</div>
                   })}
                 </div>
                 <button onClick={() => { setSelectedTopic(topic); setShowDetail(true); }} style={{ width: '100%', backgroundColor: '#fff', color: '#000', padding: '10px', borderRadius: '10px', fontWeight: '700', fontSize: '12px', border: 'none', cursor: 'pointer', marginTop: 'auto' }}>Cek Sekarang</button>
@@ -159,9 +157,7 @@ export default function Page() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center', minWidth: 0, flex: 1 }}>
                   <button onClick={() => setShowDetail(false)} style={{ backgroundColor: '#21262d', border: '1px solid #30363d', color: '#fff', padding: '6px 10px', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', flexShrink: 0 }}>←</button>
-                  <div style={{ fontWeight: '800', fontSize: '15px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span>{selectedTopic.icon}</span><span>{selectedTopic.title}</span>
-                  </div>
+                  <div style={{ fontWeight: '800', fontSize: '15px', display: 'flex', alignItems: 'center', gap: '6px' }}><span>{selectedTopic.icon}</span><span>{selectedTopic.title}</span></div>
                 </div>
                 <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexShrink: 0 }}>
                   <button onClick={() => setActiveNewsFilter(activeNewsFilter === 'api' ? null : 'api')} style={{ width: '36px', height: '36px', backgroundColor: activeNewsFilter === 'api' ? '#ff4500' : '#161b22', border: activeNewsFilter === 'api' ? '1px solid #ff6a33' : '1px solid #30363d', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', cursor: 'pointer' }}>🔥</button>
@@ -173,12 +169,12 @@ export default function Page() {
 
               <div style={{ marginTop: '12px', display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
                 <button onClick={() => setGroupSimilar(!groupSimilar)} className="mono" style={{ fontSize: '11px', padding: '5px 12px', borderRadius: '20px', border: groupSimilar ? '1px solid #58a6ff' : '1px solid #30363d', backgroundColor: groupSimilar ? 'rgba(88,166,255,0.15)' : '#161b22', color: groupSimilar ? '#58a6ff' : '#8b949e', cursor: 'pointer' }}>
-                  {groupSimilar ? '✓ Grup berita mirip ON' : 'Grup berita mirip OFF'} • {displayClusters.length} isu
+                  {groupSimilar ? '✓ Grup mirip ON' : 'Grup mirip OFF'} • {displayClusters.length} isu
                 </button>
                 {activeNewsFilter && (
                   <>
                     <div className="mono" style={{ fontSize: '11px', color: '#8b949e', backgroundColor: '#161b22', border: '1px solid #30363d', padding: '4px 10px', borderRadius: '20px' }}>
-                      {activeNewsFilter === 'api' ? '🔥 Negatif' : activeNewsFilter === 'hati' ? '❤️ Positif' : '⚡ Booster'} • {displayClusters.length} isu
+                      {activeNewsFilter === 'api' ? '🔥 Negatif' : activeNewsFilter === 'hati' ? '❤️ Positif' : '⚡ Booster'} • {displayClusters.length}
                     </div>
                     <button onClick={() => setActiveNewsFilter(null)} style={{ fontSize: '11px', backgroundColor: '#21262d', border: '1px solid #30363d', color: '#c9d1d9', padding: '4px 10px', borderRadius: '20px', cursor: 'pointer' }}>Reset ✕</button>
                   </>
@@ -191,27 +187,45 @@ export default function Page() {
                 {displayClusters.map(cluster => {
                   const isExpanded = expandedClusters[cluster.id];
                   return (
-                    <div key={cluster.id} style={{ borderRadius: '12px', backgroundColor: '#161b22', border: cluster.isCluster ? '1px solid #58a6ff33' : '1px solid #30363d', overflow: 'hidden' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px' }}>
+                    <div key={cluster.id} style={{ borderRadius: '12px', backgroundColor: '#161b22', border: '1px solid #30363d', overflow: 'hidden' }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', padding: '14px' }}>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div className="mono" style={{ fontSize: '11px', color: cluster.isCluster ? '#58a6ff' : '#8b949e', display: 'flex', gap: '6px', alignItems: 'center' }}>
-                            <span>{cluster.sources.slice(0,3).join(' • ')}{cluster.sources.length > 3 ? ` +${cluster.sources.length-3}` : ''}</span>
-                            <span>•</span>
-                            <span>{cluster.time}</span>
-                            {cluster.isCluster && <span style={{ backgroundColor: 'rgba(88,166,255,0.15)', color: '#58a6ff', padding: '1px 6px', borderRadius: '10px', fontSize: '10px' }}>{cluster.count} sumber mirip</span>}
+                          {/* HANYA 1 SUMBER WAKIL - SESUAI REQUEST */}
+                          <div className="mono" style={{ fontSize: '11px', color: '#8b949e' }}>
+                            {cluster.source} • {cluster.time}
                           </div>
                           <div style={{ fontSize: '13px', fontWeight: '600', marginTop: '4px', lineHeight: '1.4' }}>{cluster.title}</div>
                         </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flexShrink: 0 }}>
+                        
+                        {/* KANAN: ICON LINK + NOMINAL DIBAWAHNYA */}
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
                           <a href={cluster.mainUrl} target="_blank" rel="noopener noreferrer" style={{ width: '36px', height: '36px', backgroundColor: '#0d1117', border: '1px solid #30363d', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', fontSize: '16px', cursor: 'pointer' }}>🔗</a>
                           {cluster.isCluster && (
-                            <button onClick={() => setExpandedClusters(prev => ({ ...prev, [cluster.id]: !prev[cluster.id] }))} style={{ width: '36px', height: '28px', backgroundColor: isExpanded ? '#21262d' : '#0d1117', border: '1px solid #30363d', borderRadius: '8px', color: '#c9d1d9', fontSize: '11px', fontWeight: '700', cursor: 'pointer' }}>{isExpanded ? '−' : `+${cluster.count}`}</button>
+                            <button 
+                              onClick={() => setExpandedClusters(prev => ({ ...prev, [cluster.id]: !prev[cluster.id] }))} 
+                              style={{ 
+                                minWidth: '36px', 
+                                height: '22px', 
+                                backgroundColor: isExpanded ? '#21262d' : '#0d1117', 
+                                border: '1px solid #30363d', 
+                                borderRadius: '20px', 
+                                color: isExpanded ? '#58a6ff' : '#8b949e', 
+                                fontSize: '11px', 
+                                fontWeight: '700', 
+                                cursor: 'pointer',
+                                padding: '0 8px'
+                              }}
+                            >
+                              {isExpanded ? '−' : `${cluster.count}`}
+                            </button>
                           )}
                         </div>
                       </div>
                       
+                      {/* EXPAND: SEMUA SUMBER */}
                       {cluster.isCluster && isExpanded && (
                         <div style={{ borderTop: '1px solid #21262d', backgroundColor: '#0d1117', padding: '8px' }}>
+                          <div className="mono" style={{ fontSize: '10px', color: '#484f58', padding: '4px 8px 8px' }}>{cluster.count} sumber untuk isu ini:</div>
                           {cluster.headlines.map(h => (
                             <div key={h.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 8px', borderBottom: '1px solid #161b22' }}>
                               <div style={{ flex: 1, minWidth: 0 }}>
