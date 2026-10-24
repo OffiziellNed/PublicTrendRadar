@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 
-// 9 MENU + AUTO CLUSTERING BERITA MIRIP - NO CHEERIO
+// 11 MENU - TAMBAH SOSIAL & KRIMINAL - AUTO CLUSTERING
 const TOPIC_QUERIES = {
   jakarta: 'Pemprov DKI Jakarta OR Gubernur DKI',
   nasional: 'berita nasional Indonesia',
@@ -12,6 +12,8 @@ const TOPIC_QUERIES = {
   kritik_publik: 'kritik pemerintah OR demo mahasiswa OR unjuk rasa',
   dedi_mulyadi: 'Dedi Mulyadi OR Gubernur Jawa Barat',
   keluarga_jokowi: 'Jokowi OR Gibran Rakabuming OR Keluarga Jokowi',
+  sosial: 'kisah viral OR fenomena sosial OR kehidupan sosial OR kejadian lucu OR cerita unik OR anomali sosial OR tradisi unik OR viral medsos OR curhatan netizen OR kisah inspiratif OR tingkah aneh OR kelakuan unik OR ojek online OR driver ojol OR nenek viral OR kakek viral',
+  kriminal: 'kriminal OR pembunuhan OR penganiayaan OR pengeroyokan OR pembacokan OR penembakan OR KDRT OR kekerasan dalam rumah tangga OR narkoba OR sabu OR ganja OR ekstasi OR pengedaran narkotika OR perampokan OR pencurian OR begal OR curanmor OR penipuan OR pemerkosaan OR pelecehan seksual OR pelecehan OR tawuran OR mutilasi OR mayat ditemukan OR pengrusakan OR penodongan OR pembunuhan sadis OR maling tertangkap',
 };
 
 const TOPIC_META = {
@@ -24,6 +26,8 @@ const TOPIC_META = {
   kritik_publik: { title: 'Kritik Publik', icon: '📢' },
   dedi_mulyadi: { title: 'Dedi Mulyadi / KDM', icon: '🌾' },
   keluarga_jokowi: { title: 'Keluarga Jokowi', icon: '👨‍👩‍👧‍👦' },
+  sosial: { title: 'Sosial & Viral', icon: '💬' },
+  kriminal: { title: 'Kriminal', icon: '🦹' },
 };
 
 function formatTimeAgo(minutes) {
@@ -53,14 +57,9 @@ function parseRSS(xml) {
   return items;
 }
 
-// --- CLUSTERING LOGIC ---
 const STOPWORDS = new Set(['dan','di','yang','untuk','dari','dengan','pada','ke','ini','itu','adalah','akan','bisa','jadi','soal','tentang','dalam','secara','oleh','sebagai','saat','tengah','juga','sudah','telah','buka','ada','jadi','jika','atau','oleh','para','sebuah','tersebut','agar','hingga','bahwa','karena','dalam','kepada','namun','tetapi']);
 function normalizeWords(title) {
-  return title.toLowerCase()
-    .replace(/[^a-z0-9\s]/g, ' ')
-    .split(/\s+/)
-    .filter(w => w.length > 2 && !STOPWORDS.has(w))
-    .filter(w => !/^\d+$/.test(w) || w.length === 4); // keep year like 2029
+  return title.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(w => w.length > 2 && !STOPWORDS.has(w));
 }
 function jaccardSimilarity(aTitle, bTitle) {
   const aWords = new Set(normalizeWords(aTitle));
@@ -71,21 +70,17 @@ function jaccardSimilarity(aTitle, bTitle) {
   const union = aWords.size + bWords.size - inter;
   return union === 0 ? 0 : inter / union;
 }
-
 function clusterHeadlines(headlines, threshold = 0.38) {
   const clusters = [];
-  // sort by time first - newest first biar jadi representative
   const sorted = [...headlines].sort((a,b) => a.minutesAgo - b.minutesAgo);
   for (const h of sorted) {
     let found = false;
     for (const cluster of clusters) {
       const rep = cluster[0];
       const sim = jaccardSimilarity(h.title, rep.title);
-      // bonus kalau ada tahun sama dan keyword MK/Prabowo/Jokowi sama
       const sameYear = (h.title.match(/2029|2024|2025/) && rep.title.match(/2029|2024|2025/));
       if (sim >= threshold || (sim >= 0.28 && sameYear)) {
         cluster.push(h);
-        // keep cluster sorted by time
         cluster.sort((a,b) => a.minutesAgo - b.minutesAgo);
         found = true;
         break;
@@ -93,9 +88,8 @@ function clusterHeadlines(headlines, threshold = 0.38) {
     }
     if (!found) clusters.push([h]);
   }
-  // transform to grouped object
   return clusters.map((cluster, idx) => {
-    const main = cluster[0]; // newest
+    const main = cluster[0];
     const allSources = [...new Set(cluster.map(c => c.source))];
     return {
       id: `cluster-${idx}`,
@@ -106,8 +100,7 @@ function clusterHeadlines(headlines, threshold = 0.38) {
       time: main.time,
       minutesAgo: main.minutesAgo,
       sources: allSources,
-      headlines: cluster, // all variants
-      source: cluster.length > 1 ? `${allSources.length} sumber` : main.source,
+      headlines: cluster,
     };
   });
 }
@@ -132,6 +125,10 @@ async function fetchRSS(topicId, hours) {
       if (topicId === 'jakarta' && !(t.includes('jakarta') || t.includes('dki'))) continue;
       if (topicId === 'megawati' && !t.includes('megawati') && !t.includes('mega')) continue;
       if (topicId === 'puan' && !t.includes('puan')) continue;
+      if (topicId === 'kriminal') {
+        const kriminalCheck = ['bunuh','aniaya','keroyok','bacok','tembak','kdrt','narkoba','sabu','ganja','rampok','curi','begal','tipu','perkosa','leceh','tawuran','mutilasi','mayat','rusak','todong','maling','curanmor','jambret','curat','curas'];
+        if (!kriminalCheck.some(k => t.includes(k))) continue;
+      }
       items.push({
         id: `${topicId}-${i}`,
         source: (source || 'Google News').slice(0, 30),
@@ -157,7 +154,7 @@ export async function GET(req) {
     if (filterRaw.includes('6')) hours = 6;
     else if (filterRaw.includes('24')) hours = 24;
 
-    const topicOrder = ['jakarta','nasional','bencana','pdip','megawati','puan','kritik_publik','dedi_mulyadi','keluarga_jokowi'];
+    const topicOrder = ['jakarta','nasional','bencana','pdip','megawati','puan','kritik_publik','dedi_mulyadi','keluarga_jokowi','sosial','kriminal'];
 
     const results = await Promise.all(topicOrder.map(async (id) => {
       const headlines = await fetchRSS(id, hours);
@@ -167,9 +164,9 @@ export async function GET(req) {
         title: TOPIC_META[id].title,
         icon: TOPIC_META[id].icon,
         volume: `${headlines.length} berita • ${clustered.length} isu`,
-        lastUpdate: `dalam ${hours} jam terakhir • auto group mirip`,
-        headlines: headlines, // raw
-        clusters: clustered, // grouped
+        lastUpdate: `dalam ${hours} jam terakhir`,
+        headlines: headlines,
+        clusters: clustered,
       };
     }));
 
