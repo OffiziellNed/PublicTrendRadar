@@ -156,3 +156,4 @@ export async function GET(req) {
 
   return NextResponse.json({ success: true, filter: filterRaw, hours, lastSync: new Date().toISOString(), topics: results });
 }
+
