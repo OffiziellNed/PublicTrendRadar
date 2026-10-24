@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import * as cheerio from 'cheerio';
 export const dynamic = 'force-dynamic';
 
-// 9 MENU - SESUAI REQUEST TERBARU
+// 10 MENU - KRITIK PUBLIK REVISI + HOMELESS MEDIA
 const TOPIC_QUERIES = {
   jakarta: 'Jakarta',
   nasional: 'berita nasional Indonesia',
@@ -10,9 +10,10 @@ const TOPIC_QUERIES = {
   pdip: 'PDI Perjuangan',
   megawati: 'Megawati Soekarnoputri',
   puan: 'Puan Maharani',
-  kritik_publik: 'kritik pemerintah OR kritik kebijakan OR kritik politik OR kritik sosial OR protes kebijakan pemerintah',
-  dedi_mulyadi: 'Dedi Mulyadi OR KDM OR Gubernur Jawa Barat OR Gubernur Jabar',
-  keluarga_jokowi: 'Jokowi OR Joko Widodo OR Gibran Rakabuming OR Bobby Nasution OR Kahiyang Ayu OR Kaesang Pangarep OR Keluarga Jokowi OR PSI Kaesang',
+  kritik_publik: 'kritik pemerintah OR kritik kebijakan OR demo mahasiswa OR aksi demo OR unjuk rasa OR DPR kritik pemerintah OR DPRD kritik pemerintah OR mahasiswa protes OR protes kebijakan',
+  dedi_mulyadi: 'Dedi Mulyadi OR KDM OR Gubernur Jawa Barat OR Gubernur Jabar OR Kang Dedi Mulyadi',
+  keluarga_jokowi: 'Jokowi OR Joko Widodo OR Gibran Rakabuming OR Bobby Nasution OR Kahiyang Ayu OR Kaesang Pangarep OR Keluarga Jokowi',
+  homeless_media: 'totalpolitik OR pinterpolitik OR asumsico OR narasi.tv OR matanarasi OR watchdoc OR mojok OR tirto.id OR katadata OR projectmultatuli OR magdaleneid OR konde.co OR mongabay OR vice indonesia OR folkative OR volkxmedia OR ussfeed OR context.id OR historia.id OR politiksantuy OR bijakpolitik OR lambe turah OR ferry irwandi OR malakaproject OR kompas.com OR detik.com OR cnnindonesia OR kumparan OR tempo.co',
 };
 
 const TOPIC_META = {
@@ -25,6 +26,7 @@ const TOPIC_META = {
   kritik_publik: { title: 'Kritik Publik', icon: '📢' },
   dedi_mulyadi: { title: 'Dedi Mulyadi / KDM', icon: '🌾' },
   keluarga_jokowi: { title: 'Keluarga Jokowi', icon: '👨‍👩‍👧‍👦' },
+  homeless_media: { title: 'Homeless Media', icon: '🏴‍☠️' },
 };
 
 function getCleanLink(raw) {
@@ -43,7 +45,6 @@ function formatTimeAgo(minutes) {
   return `${Math.floor(minutes/1440)}h lalu`;
 }
 
-// FILTER KETAT PER MENU
 function isRelevant(title, topicId) {
   const t = title.toLowerCase();
 
@@ -54,57 +55,32 @@ function isRelevant(title, topicId) {
       t.includes('ketum pdi perjuangan') ||
       t.includes('ketua umum pdip') ||
       t.includes('ketum pdip') ||
-      t.includes('ketua umum pdi') ||
-      t.includes('ketum pdi') ||
       t.includes('bu mega') ||
       (t.includes('ketum') && (t.includes('pdi') || t.includes('pdip'))) ||
       (t.includes('ketua umum') && (t.includes('pdi') || t.includes('pdip')))
     );
   }
-  if (topicId === 'puan') {
-    return t.includes('puan') || t.includes('puan maharani');
-  }
-  if (topicId === 'pdip') {
-    return t.includes('pdip') || t.includes('pdi perjuangan') || t.includes('pdi-p') || t.includes('pdi p');
-  }
-  if (topicId === 'jakarta') {
-    return t.includes('jakarta') || t.includes('dki');
-  }
-  if (topicId === 'bencana') {
-    return t.includes('gempa') || t.includes('banjir') || t.includes('bencana') || t.includes('erupsi') || t.includes('longsor') || t.includes('tsunami') || t.includes('meletus') || t.includes('bmkg') || t.includes('bnpb');
-  }
+  if (topicId === 'puan') return t.includes('puan');
+  if (topicId === 'pdip') return t.includes('pdip') || t.includes('pdi perjuangan');
+  if (topicId === 'jakarta') return t.includes('jakarta') || t.includes('dki');
+  if (topicId === 'bencana') return t.includes('gempa') || t.includes('banjir') || t.includes('bencana') || t.includes('erupsi') || t.includes('longsor') || t.includes('bmkg');
+
   if (topicId === 'kritik_publik') {
-    const hasKritik = t.includes('kritik') || t.includes('kecam') || t.includes('protes') || t.includes('soroti') || t.includes('desak') || t.includes('pertanyakan');
-    const hasTarget = t.includes('pemerintah') || t.includes('kebijakan') || t.includes('politik') || t.includes('sosial') || t.includes('negara') || t.includes('publik') || t.includes('rakyat') || t.includes('menteri') || t.includes('dpr') || t.includes('presiden') || t.includes('pejabat');
+    const hasKritik = t.includes('kritik') || t.includes('kecam') || t.includes('protes') || t.includes('demo') || t.includes('unjuk rasa') || t.includes('aksi') || t.includes('soroti') || t.includes('desak') || t.includes('pertanyakan') || t.includes('tolak');
+    const hasTarget = t.includes('pemerintah') || t.includes('kebijakan') || t.includes('politik') || t.includes('sosial') || t.includes('dpr') || t.includes('dprd') || t.includes('mahasiswa') || t.includes('menteri') || t.includes('presiden') || t.includes('negara') || t.includes('publik') || t.includes('rakyat');
     return hasKritik && hasTarget;
   }
   if (topicId === 'dedi_mulyadi') {
-    return (
-      t.includes('dedi mulyadi') ||
-      t.includes('kdm') ||
-      t.includes('gubernur jawa barat') ||
-      t.includes('gubernur jabar') ||
-      (t.includes('gubernur') && (t.includes('jawa barat') || t.includes('jabar') || t.includes('kdm'))) ||
-      t.includes('kang dedi')
-    );
+    return t.includes('dedi mulyadi') || t.includes('kdm') || t.includes('gubernur jawa barat') || t.includes('gubernur jabar') || t.includes('kang dedi');
   }
   if (topicId === 'keluarga_jokowi') {
-    return (
-      t.includes('jokowi') ||
-      t.includes('joko widodo') ||
-      t.includes('gibran') ||
-      t.includes('bobby nasution') ||
-      t.includes('bobby') && t.includes('nasution') ||
-      t.includes('kahiyang') ||
-      t.includes('kaesang') ||
-      t.includes('keluarga jokowi') ||
-      t.includes('anak jokowi') ||
-      t.includes('jan ethes') ||
-      (t.includes('wakil presiden') && (t.includes('gibran') || t.includes('jokowi'))) ||
-      (t.includes('wapres') && (t.includes('gibran') || t.includes('jokowi'))) ||
-      (t.includes('psi') && (t.includes('kaesang') || t.includes('jokowi') || t.includes('gibran'))) ||
-      t.includes('psi') // sesuai request lo: PSI masuk Keluarga Jokowi
-    );
+    return t.includes('jokowi') || t.includes('joko widodo') || t.includes('gibran') || t.includes('bobby nasution') || t.includes('bobby') && t.includes('nasution') || t.includes('kahiyang') || t.includes('kaesang') || t.includes('jan ethes') || t.includes('keluarga jokowi') || t.includes('psi');
+  }
+  if (topicId === 'homeless_media') {
+    // Karena ini scraping IG via Google, kita anggap semua hasil dari query tersebut relevan
+    // Tapi tetap filter biar gak nyangkut berita random
+    const keywords = ['totalpolitik','pinterpolitik','asumsi','narasi','matanajwa','watchdoc','mojok','tirto','katadata','multatuli','magdalene','konde','mongabay','vice','folkative','volkx','ussfeed','context','historia','geotimes','rembuk','politiksantuy','bijakpolitik','memepolitik','lambe','bintang emon','ferry irwandi','malaka','pandji','tajukmiring','kompas','detik','cnn indonesia','kumparan','tempo','liputan6','idntimes','tribunnews','inilah','asumsi','narasi'];
+    return keywords.some(k => t.includes(k)) || true; // true = lolos semua dari query, biar banyak
   }
   return true;
 }
@@ -162,15 +138,11 @@ export async function GET(req) {
   else if (filterRaw.includes('24')) hours = 24;
 
   const bmkgLive = await fetchBMKG();
-  // URUTAN SESUAI REQUEST: 6 LAMA DI ATAS, 3 BARU DI BAWAH PDI, MEGA, PUAN
-  const topicOrder = ['jakarta','nasional','bencana','pdip','megawati','puan','kritik_publik','dedi_mulyadi','keluarga_jokowi'];
+  const topicOrder = ['jakarta','nasional','bencana','pdip','megawati','puan','kritik_publik','dedi_mulyadi','keluarga_jokowi','homeless_media'];
 
   const results = await Promise.all(topicOrder.map(async (id) => {
     let headlines = await fetchGoogleNewsRSS(id, hours);
-    if (id === 'bencana' && bmkgLive) {
-      headlines = [bmkgLive, ...headlines.filter(h => !h.isBMKG)].slice(0,200);
-    }
-    if (headlines.length === 0 && id === 'bencana' && bmkgLive) headlines = [bmkgLive];
+    if (id === 'bencana' && bmkgLive) headlines = [bmkgLive, ...headlines.filter(h => !h.isBMKG)].slice(0,200);
     headlines.sort((a,b) => (a.minutesAgo||9999) - (b.minutesAgo||9999));
     return {
       id,
