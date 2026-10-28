@@ -43,7 +43,7 @@ const TOPIC_QUERIES = {
   ],
   // HOMELESS MEDIA - AKUN KHUSUS TOTAL POLITIK IG
   homeless_media: [
-    'site:instagram.com/totalpolitikcom',
+    'site:https://www.google.com/search?q=instagram.com/totalpolitikcom&sca_esv=13a7a96266065e97&sxsrf=APpeQnvjKRDD566SgsopyghtwpXE4pRb1g:1793176494559&source=lnt&tbs=qdr:d&sa=X&ved=2ahUKEwiW0ej_ptyXAxUSgGMGHeuTCYkQpwV6BAgIEAc&biw=2133&bih=1012&dpr=0.9',
     'instagram @totalpolitikcom',
     'totalpolitikcom instagram'
   ],
