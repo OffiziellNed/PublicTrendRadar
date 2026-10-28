@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 
-// 11 MENU - FINAL BUSHCOO - LUCU WARGA + TERHARU + KLARIFIKASI + OB + RENOVASI
+// 11 MENU - FINAL SOSIAL BUSHCOO + KRITIK PUBLIK LENGKAP 8 QUERY
 const TOPIC_QUERIES = {
   jakarta: ['Pemprov DKI Jakarta OR Gubernur DKI'],
   nasional: ['berita nasional Indonesia'],
@@ -9,10 +9,20 @@ const TOPIC_QUERIES = {
   pdip: ['PDI Perjuangan OR PDIP'],
   megawati: ['Megawati Soekarnoputri OR Ketua Umum PDIP'],
   puan: ['Puan Maharani'],
-  kritik_publik: ['kritik pemerintah OR demo mahasiswa OR unjuk rasa'],
+  // KRITIK PUBLIK - 8 QUERY LENGKAP
+  kritik_publik: [
+    'kritik pemerintah OR kritik kebijakan OR kritik presiden OR kritik menteri',
+    'demo OR unjuk rasa OR aksi massa OR aksi unjuk rasa OR demo mahasiswa OR demo buruh OR demo ojol',
+    'tuai kritik OR banjir kritik OR panen kritik OR tuai kecaman OR dihujat OR dikecam OR kecaman publik OR viral kecam',
+    'desak mundur OR tuntut mundur OR desak copot OR tuntut copot OR mosi tidak percaya OR lengser',
+    'tolak RUU OR tolak kenaikan OR tolak pajak OR tolak Tapera OR protes kebijakan OR polemik OR kontroversi OR blunder',
+    'DPR kritik OR DPRD kritik OR anggota dewan kritik OR legislator kritik OR interpelasi OR hak angket OR DPR kecam',
+    'boikot OR petisi OR tagar protes OR suara rakyat OR keluhan warga OR aspirasi rakyat',
+    'pengamat kritik OR pakar kritik OR aktivis kritik OR LSM kritik OR soroti kebijakan OR sindir OR sentil'
+  ],
   dedi_mulyadi: ['Dedi Mulyadi OR Gubernur Jawa Barat'],
   keluarga_jokowi: ['Jokowi OR Gibran OR Keluarga Jokowi'],
-  // SOSIAL & VIRAL - FINAL BUSHCOO EDITION - 10 QUERIES
+  // SOSIAL & VIRAL - FINAL BUSHCOO - 10 QUERY
   sosial: [
     'viral OR video viral OR tiktok viral OR viral medsos',
     'fenomena sosial OR curhatan netizen OR curhat viral OR netizen heboh',
@@ -22,7 +32,6 @@ const TOPIC_QUERIES = {
     'kejadian lucu OR tingkah lucu OR kelakuan lucu OR aksi kocak OR kocak OR ngakak OR bikin ngakak OR lawak OR humor warga',
     'emak-emak OR bapak-bapak OR bocil OR bocah OR kakek viral OR nenek viral OR ojol OR ojek online OR warga +62',
     'kelakuan warga OR tingkah warga OR potret warga OR prank OR usil OR jahil OR hajatan OR arisan OR gotong royong',
-    // QUERY BARU - KHUSUS BUSHCOO STYLE
     'terharu OR syok OR kejutan OR kejutan ulang tahun OR ultah OR ulang tahun OR mengharukan',
     'klarifikasi OR ramai diperbincangkan OR media sosial OR OB OR office boy OR renovasi OR cari kerja OR transjakarta OR seleb tiktok OR romantis banget OR tak sengaja'
   ],
@@ -42,19 +51,23 @@ const TOPIC_FILTERS = {
   pdip: ['pdip','pdi perjuangan','pdi-p'],
   megawati: ['megawati','mega soekarnoputri','ketua umum pdip','bu mega'],
   puan: ['puan maharani','puan'],
-  kritik_publik: ['kritik','demo','unjuk rasa','protes'],
+  // FILTER KRITIK PUBLIK - LENGKAP
+  kritik_publik: [
+    'kritik','mengkritik','dikritik','kecam','mengkecam','dikecam','kecaman','soroti','disoroti','sentil','disentil','sindir','disindir',
+    'demo','unjuk rasa','aksi massa','aksi unjuk rasa','demo mahasiswa','demo buruh','protes','memprotes','diprotes',
+    'desak','tuntut','mosi','lengser','copot','pecat','mundur','desak mundur','tuntut mundur',
+    'tolak','penolakan','tolak ruu','tolak kenaikan','polemik','kontroversi','blunder','gagalkan','batalkan',
+    'tuai kritik','banjir kritik','panen kritik','tuai kecaman','dihujat','hujat','viral kecam','kecaman publik',
+    'dpr kritik','dprd kritik','anggota dewan','legislator','komisi dpr','interpelasi','hak angket','dewan kritik',
+    'boikot','petisi','tagar','suara rakyat','keluhan warga','aspirasi rakyat','aspirasi','pengamat kritik','pakar kritik','aktivis kritik','lsm','lsm kritik'
+  ],
   dedi_mulyadi: ['dedi mulyadi','kdm','gubernur jawa barat','kang dedi'],
   keluarga_jokowi: ['jokowi','gibran','kaesang','keluarga jokowi'],
-  // FILTER SOSIAL - FINAL BUSHCOO
   sosial: [
-    // Base viral
     'viral','video viral','tiktok','fenomena sosial','curhatan','curhat','netizen','kisah haru','mengharukan','inspiratif','cerita unik','kejadian unik','tradisi unik','fenomena aneh','anomali','aneh',
-    // Lucu warga
     'lucu','kocak','ngakak','bikin ngakak','lawak','humor','tingkah','kelakuan','aksi kocak','emak-emak','bapak-bapak','bocil','bocah','kakek','nenek','ojol','ojek','warga','warga +62','kelakuan warga','tingkah warga','potret warga',
-    // Diluar nalar
     'nyeleneh','absurd','ajaib','nyentrik','prank','usil','jahil','hajatan','arisan','gotong royong','di luar nalar','diluar nalar','gak masuk akal','meme',
-    // BARU - BUSHCOO STYLE - 8 KEYWORD LO + 6 TAMBAHAN GUE
-    'terharu','syok','kejutan','kejutan ulang tahun','ultah','ulang tahun','klarifikasi','ramai diperbincangkan','media sosial','ob','office boy','renovasi','bikin haru','cari kerja','transjakarta','seleb tiktok','selebgram','tak sengaja','salah kira','romantis','romantis banget','bikin syok','viral di medsos','diperbincangkan','makan cat','yogurt'
+    'terharu','syok','kejutan','kejutan ulang tahun','ultah','ulang tahun','klarifikasi','ramai diperbincangkan','media sosial','ob','office boy','renovasi','bikin haru','cari kerja','transjakarta','seleb tiktok','selebgram','tak sengaja','salah kira','romantis','romantis banget','viral di medsos','diperbincangkan','makan cat'
   ],
   kriminal: ['kriminal','bunuh','narkoba','sabu','ganja','curanmor','maling','curi','rampok','begal','jambret','kdrt','aniaya','keroyok','bacok','tembak','perkosa','leceh','tipu','mayat','mutilasi','tawuran'],
 };
@@ -131,7 +144,7 @@ async function fetchRSS(topicId, hours){
       const pubDate = new Date(pubDateStr);
       const minutesAgo = isNaN(pubDate.getTime()) ? 9999 : Math.floor((Date.now()-pubDate.getTime())/60000);
       if(minutesAgo > hours*60 + 180) {
-        if(!(topicId==='sosial' || topicId==='kriminal') || minutesAgo > 24*60+180) continue;
+        if(!(topicId==='sosial' || topicId==='kriminal' || topicId==='kritik_publik') || minutesAgo > 24*60+180) continue;
       }
       const cleanTitle = (titleFull.split(' - ')[0] || titleFull).trim();
       if(!cleanTitle) continue;
@@ -170,7 +183,7 @@ export async function GET(req){
     const results = await Promise.all(topicOrder.map(async (id)=>{
       const headlines = await fetchRSS(id, hours);
       const clustered = clusterHeadlines(headlines);
-      return { id, title: TOPIC_META[id].title, icon: TOPIC_META[id].icon, volume: `${headlines.length} berita • ${clustered.length} isu`, lastUpdate: `dalam ${hours} jam - BUSHCOO FINAL`, headlines, clusters: clustered };
+      return { id, title: TOPIC_META[id].title, icon: TOPIC_META[id].icon, volume: `${headlines.length} berita • ${clustered.length} isu`, lastUpdate: `dalam ${hours} jam - FINAL BUSHCOO+KRITIK`, headlines, clusters: clustered };
     }));
 
     return NextResponse.json({ success:true, filter:filterRaw, hours, lastSync:new Date().toISOString(), topics: results }, { status:200 });
