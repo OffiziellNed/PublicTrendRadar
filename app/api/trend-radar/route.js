@@ -41,7 +41,7 @@ const TOPIC_QUERIES = {
     'KDRT OR penganiayaan OR pengeroyokan OR pembacokan',
     'pemerkosaan OR penipuan OR mayat ditemukan OR mutilasi OR tawuran'
   ],
-  homeless_media: ['site:instagram.com/totalpolitikcom/p/', 'site:instagram.com/totalpolitikcom/reel/'],
+  homeless_media: ['instagram.com/totalpolitikcom'], // SESUAI SCREENSHOT LO
 };
 
 const TOPIC_FILTERS = {
@@ -56,7 +56,7 @@ const TOPIC_FILTERS = {
   keluarga_jokowi: ['jokowi','gibran','kaesang','keluarga jokowi'],
   sosial: ['viral','fenomena sosial','kisah haru','cerita unik','fenomena aneh','lucu','kocak','ngakak','emak-emak','bapak-bapak','bocil','warga','nyeleneh','absurd','terharu','syok','kejutan','klarifikasi','ramai diperbincangkan','ob','renovasi'],
   kriminal: ['kriminal','bunuh','narkoba','curanmor','maling','kdrt','aniaya','perkosa','mayat'],
-  homeless_media: ['totalpolitik','instagram'], // loose, karena udah filter /p/ dan /reel/
+  homeless_media: ['totalpolitik','instagram'], // LOOSE
 };
 
 const TOPIC_META = {
@@ -87,7 +87,7 @@ function parseRSS(xml) {
   while ((match = itemRegex.exec(xml)) !== null) {
     const itemXml = match[1];
     const getTag = (tag) => {
-      const r = new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\/${tag}>`, 'i');
+      const r = new RegExp(`<${tag}[^>]*>([\\s\S]*?)<\/${tag}>`, 'i');
       const m = itemXml.match(r);
       return m ? m[1].trim().replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1') : '';
     };
@@ -121,86 +121,95 @@ async function callSerper(query, tbs){
   }catch{ return []; }
 }
 
-// KHUSUS POSTINGAN IG TOTAL POLITIK - BUKAN AKUNNYA
+// SESUAI SCREENSHOT_451.png - QUERY: instagram.com/totalpolitikcom + Past 24 hours
 async function fetchSerperHomeless(hours){
   try{
     if(!SERPER_KEY) return [];
 
-    // Mapping filter lo ke tbs Google
-    let tbs = 'qdr:d'; // default 24 jam
+    // Mapping filter UI lo ke tbs Google (sesuai screenshot)
+    // Past 24 hours = qdr:d, Past hour = qdr:h, Past week = qdr:w
+    let tbs = 'qdr:d'; // default kayak screenshot lo Past 24 hours
     if(hours <= 1) tbs = 'qdr:h';
     else if(hours <= 3) tbs = 'qdr:h3';
     else if(hours <= 6) tbs = 'qdr:h6';
     else tbs = 'qdr:d';
 
-    // QUERY KHUSUS POSTINGAN - BUKAN PROFILE
-    const queries = [
-      'site:instagram.com/totalpolitikcom/p/',
-      'site:instagram.com/totalpolitikcom/reel/',
-      'site:instagram.com/p/ totalpolitikcom'
-    ];
+    // QUERY PERSIS KAYAK YANG LO KETIK DI GOOGLE (Screenshot_451.png)
+    const query = 'instagram.com/totalpolitikcom';
 
     let allItems = [];
     const seen = new Set();
 
-    // PASS 1: DENGAN TBS (sesuai filter 3J/6J/24J yang lo pilih)
-    for(const q of queries){
-      const organic = await callSerper(q, tbs);
-      for(const r of organic){
-        const link = r.link || '';
-        // FILTER KETAT: HARUS /p/ ATAU /reel/ DAN HARUS totalpolitikcom
-        if(!link.includes('instagram.com')) continue;
-        const hasPostPath = link.includes('/p/') || link.includes('/reel/') || link.includes('/tv/');
-        if(!hasPostPath) continue; // SKIP PROFILE PAGE https://www.instagram.com/totalpolitikcom/
-        if(!link.toLowerCase().includes('totalpolitikcom') && !(r.title||'').toLowerCase().includes('totalpolitik')) continue;
+    // PASS 1: Dengan tbs sesuai filter (Past 24 hours)
+    const organic = await callSerper(query, tbs);
 
+    for(const r of organic){
+      const link = r.link || '';
+      const title = r.title || '';
+      const snippet = r.snippet || '';
+
+      // Harus Instagram
+      if(!link.includes('instagram.com')) continue;
+      // Harus totalpolitikcom (di link atau title)
+      if(!link.toLowerCase().includes('totalpolitikcom') && !title.toLowerCase().includes('totalpolitikcom') && !snippet.toLowerCase().includes('totalpolitikcom')) continue;
+
+      const key = link.split('?')[0];
+      if(seen.has(key)) continue;
+      seen.add(key);
+
+      // Parse waktu dari snippet kayak "22 hours ago" / "18 hours ago" yang ada di screenshot
+      let minutesAgo = hours <= 1 ? 30 : hours <= 3 ? 90 : hours <= 6 ? 180 : 600;
+      const timeText = `${title} ${snippet}`;
+      const timeMatch = timeText.match(/(\d+)\s*(hour|hours|menit|jam)\s*ago|(\d+)\s*(hour|jam|menit)/i);
+      if(timeMatch){
+        const num = parseInt(timeMatch[1] || timeMatch[3]);
+        const unit = (timeMatch[2] || timeMatch[4] || '').toLowerCase();
+        if(!isNaN(num)){
+          if(unit.includes('hour') || unit.includes('jam')) minutesAgo = num * 60;
+          else if(unit.includes('menit') || unit.includes('minute')) minutesAgo = num;
+        }
+      }
+      // Jika ada date dari Serper
+      if(r.date){
+        const d = new Date(r.date);
+        if(!isNaN(d.getTime())) minutesAgo = Math.floor((Date.now() - d.getTime())/60000);
+      }
+
+      // Title persis kayak di screenshot: "Rancangan Undang-Undang (RUU) Perampasan Aset ..."
+      // "Kapolri Jenderal Suyudi Ario Seto memastikan Polri ..."
+      const cleanTitle = title.replace(/ - Instagram.*$/i,'').trim() || snippet.slice(0,130);
+      if(cleanTitle.length < 5) continue;
+
+      allItems.push({
+        id: `hm-${seen.size}`,
+        source: `Instagram @totalpolitikcom • ${r.credits || ''}`.slice(0,40) || 'Instagram @totalpolitikcom',
+        time: formatTimeAgo(minutesAgo),
+        minutesAgo,
+        title: cleanTitle.slice(0,140),
+        url: link,
+        link
+      });
+    }
+
+    // PASS 2: Jika kosong karena filter terlalu ketat, coba ALL TIME
+    if(allItems.length === 0){
+      const organic2 = await callSerper(query, null);
+      for(const r of organic2){
+        const link = r.link || '';
+        if(!link.includes('instagram.com')) continue;
+        if(!link.toLowerCase().includes('totalpolitikcom')) continue;
         const key = link.split('?')[0];
         if(seen.has(key)) continue;
         seen.add(key);
-
-        let minutesAgo = hours <= 1 ? 30 : hours <= 3 ? 90 : hours <= 6 ? 180 : 360;
-        if(r.date){
-          const d = new Date(r.date);
-          if(!isNaN(d.getTime())) minutesAgo = Math.floor((Date.now() - d.getTime())/60000);
-        }
-
-        const cleanTitle = (r.title || r.snippet || 'Instagram @totalpolitikcom').replace(/ - Instagram.*$/i,'').slice(0,140);
-
         allItems.push({
-          id: `hm-${seen.size}`,
+          id: `hm-all-${seen.size}`,
           source: 'Instagram @totalpolitikcom',
-          time: formatTimeAgo(minutesAgo),
-          minutesAgo,
-          title: cleanTitle,
+          time: formatTimeAgo(720),
+          minutesAgo: 720,
+          title: (r.title || r.snippet || 'Instagram @totalpolitikcom').replace(/ - Instagram.*$/i,'').slice(0,140),
           url: link,
           link
         });
-      }
-      if(allItems.length >= 15) break;
-    }
-
-    // PASS 2: JIKA KOSONG KARENA FILTER JAM TERLALU KETAT, COBA ALL TIME
-    if(allItems.length === 0){
-      for(const q of queries){
-        const organic = await callSerper(q, null);
-        for(const r of organic){
-          const link = r.link || '';
-          if(!link.includes('instagram.com')) continue;
-          if(!link.includes('/p/') && !link.includes('/reel/')) continue;
-          const key = link.split('?')[0];
-          if(seen.has(key)) continue;
-          seen.add(key);
-          allItems.push({
-            id: `hm-all-${seen.size}`,
-            source: 'Instagram @totalpolitikcom',
-            time: formatTimeAgo(720),
-            minutesAgo: 720,
-            title: (r.title || 'Instagram @totalpolitikcom').replace(/ - Instagram.*$/i,'').slice(0,140),
-            url: link,
-            link
-          });
-        }
-        if(allItems.length >= 15) break;
       }
     }
 
@@ -228,9 +237,8 @@ async function fetchRSS(topicId, hours){
   try{
     if(topicId === 'homeless_media'){
       const serperItems = await fetchSerperHomeless(hours);
-      return serperItems; // TIDAK ADA FALLBACK RSS BIAR GAK KECAMPUR BERITA
+      return serperItems; // PURE SERPER - BIAR SESUAI SCREENSHOT GOOGLE
     }
-
     const queries = TOPIC_QUERIES[topicId] || [topicId];
     let allRaw=[];
     const results = await Promise.allSettled(queries.map(q=>fetchSingleQuery(q, hours)));
@@ -262,7 +270,7 @@ export async function GET(req){
     const results = await Promise.all(topicOrder.map(async (id)=>{
       const headlines = await fetchRSS(id, hours);
       const clustered = clusterHeadlines(headlines);
-      return { id, title: TOPIC_META[id].title, icon: TOPIC_META[id].icon, volume: `${headlines.length} berita • ${clustered.length} isu`, lastUpdate: `dalam ${hours} jam - POSTS ONLY`, headlines, clusters: clustered };
+      return { id, title: TOPIC_META[id].title, icon: TOPIC_META[id].icon, volume: `${headlines.length} berita • ${clustered.length} isu`, lastUpdate: `dalam ${hours} jam - SESUAI SCREENSHOT`, headlines, clusters: clustered };
     }));
     return NextResponse.json({ success:true, filter:filterRaw, hours, lastSync:new Date().toISOString(), topics: results }, { status:200 });
   }catch(e){
