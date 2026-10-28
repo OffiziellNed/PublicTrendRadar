@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 
-// 12 MENU - FIX HOMELESS MEDIA KHUSUS IG @totalpolitikcom VIA GOOGLE.COM/SEARCH
-// 11 MENU LAMA INTACT - HOMELESS MEDIA SCRAPING GOOGLE SEARCH INSTAGRAM
+// 12 MENU - SERPER API UNTUK HOMELESS MEDIA IG @totalpolitikcom
+// API KEY: dari user - 111b30b25adda0acef69489c7a9ada6b1715b48b
+// SET DI VERCEL ENV: SERPER_API_KEY
+const SERPER_KEY = process.env.SERPER_API_KEY || '111b30b25adda0acef69489c7a9ada6b1715b48b';
+
 const TOPIC_QUERIES = {
   jakarta: ['Pemprov DKI Jakarta OR Gubernur DKI'],
   nasional: ['berita nasional Indonesia'],
@@ -41,12 +44,7 @@ const TOPIC_QUERIES = {
     'KDRT OR penganiayaan OR pengeroyokan OR pembacokan',
     'pemerkosaan OR penipuan OR mayat ditemukan OR mutilasi OR tawuran'
   ],
-  // HOMELESS MEDIA - AKUN KHUSUS TOTAL POLITIK IG
-  homeless_media: [
-    'site:https://www.google.com/search?q=instagram.com/totalpolitikcom&sca_esv=13a7a96266065e97&sxsrf=APpeQnvjKRDD566SgsopyghtwpXE4pRb1g:1793176494559&source=lnt&tbs=qdr:d&sa=X&ved=2ahUKEwiW0ej_ptyXAxUSgGMGHeuTCYkQpwV6BAgIEAc&biw=2133&bih=1012&dpr=0.9',
-    'instagram @totalpolitikcom',
-    'totalpolitikcom instagram'
-  ],
+  homeless_media: ['site:instagram.com/totalpolitikcom'],
 };
 
 const TOPIC_FILTERS = {
@@ -56,26 +54,12 @@ const TOPIC_FILTERS = {
   pdip: ['pdip','pdi perjuangan','pdi-p'],
   megawati: ['megawati','mega soekarnoputri','ketua umum pdip','bu mega'],
   puan: ['puan maharani','puan'],
-  kritik_publik: [
-    'kritik','mengkritik','dikritik','kecam','mengkecam','dikecam','kecaman','soroti','disoroti','sentil','disentil','sindir','disindir',
-    'demo','unjuk rasa','aksi massa','aksi unjuk rasa','demo mahasiswa','demo buruh','protes','memprotes','diprotes',
-    'desak','tuntut','mosi','lengser','copot','pecat','mundur','desak mundur','tuntut mundur',
-    'tolak','penolakan','tolak ruu','tolak kenaikan','polemik','kontroversi','blunder','gagalkan','batalkan',
-    'tuai kritik','banjir kritik','panen kritik','tuai kecaman','dihujat','hujat','viral kecam','kecaman publik',
-    'dpr kritik','dprd kritik','anggota dewan','legislator','komisi dpr','interpelasi','hak angket','dewan kritik',
-    'boikot','petisi','tagar','suara rakyat','keluhan warga','aspirasi rakyat','aspirasi','pengamat kritik','pakar kritik','aktivis kritik','lsm','lsm kritik'
-  ],
+  kritik_publik: ['kritik','kecam','demo','unjuk rasa','protes','desak','tuntut','tolak','polemik','kontroversi','dpr kritik','boikot','petisi','suara rakyat','pengamat kritik'],
   dedi_mulyadi: ['dedi mulyadi','kdm','gubernur jawa barat','kang dedi'],
   keluarga_jokowi: ['jokowi','gibran','kaesang','keluarga jokowi'],
-  sosial: [
-    'viral','video viral','tiktok','fenomena sosial','curhatan','curhat','netizen','kisah haru','mengharukan','inspiratif','cerita unik','kejadian unik','tradisi unik','fenomena aneh','anomali','aneh',
-    'lucu','kocak','ngakak','bikin ngakak','lawak','humor','tingkah','kelakuan','aksi kocak','emak-emak','bapak-bapak','bocil','bocah','kakek','nenek','ojol','ojek','warga','warga +62','kelakuan warga','tingkah warga','potret warga',
-    'nyeleneh','absurd','ajaib','nyentrik','prank','usil','jahil','hajatan','arisan','gotong royong','di luar nalar','diluar nalar','gak masuk akal','meme',
-    'terharu','syok','kejutan','kejutan ulang tahun','ultah','ulang tahun','klarifikasi','ramai diperbincangkan','media sosial','ob','office boy','renovasi','bikin haru','cari kerja','transjakarta','seleb tiktok','selebgram','tak sengaja','salah kira','romantis','romantis banget','viral di medsos','diperbincangkan','makan cat'
-  ],
-  kriminal: ['kriminal','bunuh','narkoba','sabu','ganja','curanmor','maling','curi','rampok','begal','jambret','kdrt','aniaya','keroyok','bacok','tembak','perkosa','leceh','tipu','mayat','mutilasi','tawuran'],
-  // HOMELESS MEDIA - LOOSE FILTER - KARENA UDAH SPESIFIK AKUN
-  homeless_media: ['totalpolitik','total politik','instagram','totalpolitikcom'],
+  sosial: ['viral','fenomena sosial','kisah haru','cerita unik','fenomena aneh','lucu','kocak','ngakak','emak-emak','bapak-bapak','bocil','warga','nyeleneh','absurd','terharu','syok','kejutan','klarifikasi','ramai diperbincangkan','ob','renovasi'],
+  kriminal: ['kriminal','bunuh','narkoba','curanmor','maling','kdrt','aniaya','perkosa','mayat'],
+  homeless_media: ['totalpolitik','instagram','totalpolitikcom'], // loose karena udah spesifik
 };
 
 const TOPIC_META = {
@@ -124,123 +108,122 @@ function clusterHeadlines(headlines, threshold=0.38){
   return clusters.map((cluster, idx)=>{ const main=cluster[0]; const allSources=[...new Set(cluster.map(c=>c.source))]; return { id:`cluster-${idx}`, isCluster:cluster.length>1, count:cluster.length, title:main.title, mainUrl:main.url, time:main.time, minutesAgo:main.minutesAgo, sources:allSources, headlines:cluster }; });
 }
 
-// KHUSUS HOMELESS MEDIA - SCRAPING GOOGLE.COM/SEARCH SITE:INSTAGRAM.COM/TOTALPOLITIKCOM
-async function fetchGoogleInstagram(hours){
+// ===== SERPER KHUSUS HOMELESS MEDIA - SCRAPING GOOGLE VIA API =====
+async function fetchSerperHomeless(hours){
   try{
-    // Mapping hours ke tbs google: h = past hour, d = past 24h
+    if(!SERPER_KEY) return [];
+
+    // Mapping hours ke tbs Google
     let tbs = 'qdr:d'; // default 24h
     if(hours <= 1) tbs = 'qdr:h';
-    else if(hours <= 3) tbs = 'qdr:h3'; // google support qdr:h3
+    else if(hours <= 3) tbs = 'qdr:h3';
     else if(hours <= 6) tbs = 'qdr:h6';
     else tbs = 'qdr:d';
 
-    const queries = [
-      `site:instagram.com/totalpolitikcom`,
-      `total politik instagram`,
-      `@totalpolitikcom instagram`
-    ];
+    // Query khusus IG Total Politik dari Google
+    const body = {
+      q: 'site:instagram.com/totalpolitikcom',
+      gl: 'id',
+      hl: 'id',
+      num: 20,
+      tbs: tbs
+    };
 
-    let allItems = [];
+    const controller = new AbortController();
+    const timeout = setTimeout(()=>controller.abort(), 5000);
 
-    for(const q of queries){
-      try{
-        const url = `https://www.google.com/search?q=${encodeURIComponent(q)}&hl=id&gl=ID&tbs=${tbs}&num=20`;
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 4500);
-        const res = await fetch(url, {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Language': 'id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7',
-            'Referer': 'https://www.google.com/',
-          },
-          cache: 'no-store',
-          signal: controller.signal
-        });
-        clearTimeout(timeout);
-        if(!res.ok) continue;
-        const html = await res.text();
+    const res = await fetch('https://google.serper.dev/search', {
+      method: 'POST',
+      headers: {
+        'X-API-KEY': SERPER_KEY,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+      cache: 'no-store'
+    });
+    clearTimeout(timeout);
 
-        // Detect block
-        if(html.includes('Our systems have detected unusual traffic') || html.includes('/sorry/') || html.includes('CAPTCHA') || html.length < 1000) continue;
-
-        // Extract titles from h3
-        const titles = [];
-        const h3Regex = /<h3[^>]*>(.*?)<\/h3>/gi;
-        let h3Match;
-        while((h3Match = h3Regex.exec(html)) !== null){
-          const txt = h3Match[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g,' ').trim();
-          if(txt && txt.length > 5 && !txt.toLowerCase().includes('people also ask')) titles.push(txt);
-        }
-
-        // Extract instagram links - both direct and /url?q=
-        const seen = new Set();
-        const linkPatterns = [
-          /https:\/\/www\.instagram\.com\/totalpolitikcom\/p\/[A-Za-z0-9_-]+/gi,
-          /https:\/\/www\.instagram\.com\/totalpolitikcom/gi,
-          /\/url\?q=https:\/\/www\.instagram\.com\/totalpolitikcom[^&"]+/gi
-        ];
-
-        let linkIdx = 0;
-        for(const pat of linkPatterns){
-          let m;
-          while((m = pat.exec(html)) !== null){
-            let rawUrl = m[0];
-            // Decode /url?q=
-            if(rawUrl.startsWith('/url?q=')){
-              rawUrl = decodeURIComponent(rawUrl.replace('/url?q=','').split('&')[0]);
-            }
-            rawUrl = rawUrl.split('&')[0].split('"')[0];
-            if(seen.has(rawUrl)) continue;
-            if(!rawUrl.includes('totalpolitikcom')) continue;
-            seen.add(rawUrl);
-
-            // Estimate minutesAgo from snippet around link
-            const pos = m.index;
-            const context = html.slice(Math.max(0, pos-800), pos+800);
-            let minutesAgo = hours <=1 ? 30 : hours <=6 ? 180 : 720;
-            // Try parse "X menit yang lalu" / "X jam yang lalu" / "X hours ago"
-            const timeRegex = /(\d+)\s*(menit|jam|minute|hour|hours)\s*(yang\s*lalu|ago)/i;
-            const tm = context.match(timeRegex);
-            if(tm){
-              const num = parseInt(tm[1]);
-              const unit = tm[2].toLowerCase();
-              if(unit.includes('menit') || unit.includes('minute')) minutesAgo = num;
-              else if(unit.includes('jam') || unit.includes('hour')) minutesAgo = num*60;
-            }
-
-            const title = titles[linkIdx] || titles[0] || `Instagram @totalpolitikcom - ${rawUrl.split('/p/')[1]?.slice(0,30) || 'Post'}`;
-            linkIdx++;
-
-            allItems.push({
-              id: `homeless-${allItems.length}`,
-              source: 'Instagram @totalpolitikcom',
-              time: formatTimeAgo(minutesAgo),
-              minutesAgo: minutesAgo,
-              title: title.replace(/ - Instagram.*$/i,'').replace(/Instagram.*$/i,'').trim().slice(0,120),
-              url: rawUrl,
-              link: rawUrl
-            });
-            if(allItems.length >= 30) break;
-          }
-          if(allItems.length >= 30) break;
-        }
-
-      }catch(e){ continue; }
+    if(!res.ok){
+      const txt = await res.text().catch(()=> '');
+      console.log('Serper error', res.status, txt);
+      return [];
     }
 
-    // Deduplicate by url
-    const uniq = [];
-    const seenUrl = new Set();
-    for(const it of allItems){
-      if(seenUrl.has(it.url)) continue;
-      seenUrl.add(it.url);
-      uniq.push(it);
-    }
-    uniq.sort((a,b)=>a.minutesAgo-b.minutesAgo);
-    return uniq.slice(0,25);
+    const data = await res.json();
+    const organic = data.organic || [];
 
-  }catch{ return []; }
+    const items = [];
+    let idx = 0;
+
+    for(const r of organic){
+      const link = r.link || '';
+      const title = r.title || '';
+      // Hanya ambil yang beneran instagram.com/totalpolitikcom
+      if(!link.includes('instagram.com/totalpolitikcom')) continue;
+      // Skip profile page doang, ambil post /p/ atau /reel/
+      // Tapi profile page juga boleh biar gak kosong
+      let minutesAgo = hours <= 1 ? 30 : hours <= 3 ? 90 : hours <= 6 ? 180 : 360;
+      // Coba parse tanggal dari Serper jika ada
+      if(r.date){
+        const d = new Date(r.date);
+        if(!isNaN(d.getTime())){
+          minutesAgo = Math.floor((Date.now() - d.getTime())/60000);
+        }
+      }
+
+      // Bersihkan title dari " - Instagram"
+      const cleanTitle = title.replace(/ - Instagram.*$/i,'').replace(/Instagram.*$/i,'').trim().slice(0,130) || `Instagram @totalpolitikcom - ${link.split('/p/')[1]?.slice(0,20) || 'Post'}`;
+
+      items.push({
+        id: `homeless-serper-${idx}`,
+        source: 'Instagram @totalpolitikcom',
+        time: formatTimeAgo(minutesAgo),
+        minutesAgo: minutesAgo,
+        title: cleanTitle,
+        url: link,
+        link: link
+      });
+      idx++;
+      if(items.length >= 25) break;
+    }
+
+    // Kalau Serper return 0 karena tbs terlalu ketat, coba lagi tanpa tbs (all time)
+    if(items.length === 0){
+      const retryBody = { q: 'site:instagram.com/totalpolitikcom', gl: 'id', hl: 'id', num: 20 };
+      const res2 = await fetch('https://google.serper.dev/search', {
+        method: 'POST',
+        headers: { 'X-API-KEY': SERPER_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify(retryBody),
+        cache: 'no-store'
+      });
+      if(res2.ok){
+        const data2 = await res2.json();
+        const organic2 = data2.organic || [];
+        for(const r of organic2){
+          const link = r.link || '';
+          if(!link.includes('instagram.com/totalpolitikcom')) continue;
+          items.push({
+            id: `homeless-serper-retry-${items.length}`,
+            source: 'Instagram @totalpolitikcom',
+            time: formatTimeAgo(720),
+            minutesAgo: 720,
+            title: (r.title || 'Instagram @totalpolitikcom').replace(/ - Instagram.*$/i,'').slice(0,130),
+            url: link,
+            link: link
+          });
+          if(items.length >= 25) break;
+        }
+      }
+    }
+
+    items.sort((a,b)=>a.minutesAgo-b.minutesAgo);
+    return items;
+
+  }catch(e){
+    console.log('Serper exception', String(e));
+    return [];
+  }
 }
 
 async function fetchSingleQuery(q, hours){
@@ -248,7 +231,7 @@ async function fetchSingleQuery(q, hours){
     const fullQ = `${q} when:${hours}h`;
     const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(fullQ)}&hl=id&gl=ID&ceid=ID:id`;
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 4000);
+    const timeout = setTimeout(()=>controller.abort(), 4000);
     const res = await fetch(rssUrl, { headers: { 'User-Agent': 'Mozilla/5.0' }, cache: 'no-store', signal: controller.signal });
     clearTimeout(timeout);
     if(!res.ok) return [];
@@ -259,56 +242,40 @@ async function fetchSingleQuery(q, hours){
 
 async function fetchRSS(topicId, hours){
   try{
-    // HOMELESS MEDIA PAKAI GOOGLE.COM SEARCH KHUSUS IG
+    // HOMELESS MEDIA PAKAI SERPER
     if(topicId === 'homeless_media'){
-      const igItems = await fetchGoogleInstagram(hours);
-      if(igItems.length > 0) return igItems;
-      // Fallback ke RSS jika Google Search diblock
+      const serperItems = await fetchSerperHomeless(hours);
+      if(serperItems.length > 0) return serperItems;
+      // Fallback kalau Serper kosong / key belum set
       const fallback = await fetchSingleQuery('totalpolitikcom', 24);
-      const items = [];
+      const items=[];
       for(let i=0;i<fallback.length;i++){
-        const { titleFull, linkRaw, pubDateStr } = fallback[i];
+        const {titleFull,linkRaw,pubDateStr} = fallback[i];
         const pubDate = new Date(pubDateStr);
-        const minutesAgo = isNaN(pubDate.getTime()) ? 60 : Math.floor((Date.now()-pubDate.getTime())/60000);
+        const minutesAgo = isNaN(pubDate.getTime()) ? 120 : Math.floor((Date.now()-pubDate.getTime())/60000);
         if(minutesAgo > 24*60+180) continue;
-        const cleanTitle = (titleFull.split(' - ')[0] || titleFull).trim();
-        if(!cleanTitle.toLowerCase().includes('totalpolitik')) continue;
-        items.push({ id:`homeless-${i}`, source:'Instagram @totalpolitikcom', time:formatTimeAgo(minutesAgo), minutesAgo, title:cleanTitle, url:linkRaw.replace(/&amp;/g,'&'), link:linkRaw.replace(/&amp;/g,'&') });
+        const cleanTitle = (titleFull.split(' - ')[0]||titleFull).trim();
+        items.push({id:`hm-fb-${i}`,source:'Total Politik (Fallback)',time:formatTimeAgo(minutesAgo),minutesAgo,title:cleanTitle,url:linkRaw.replace(/&amp;/g,'&'),link:linkRaw.replace(/&amp;/g,'&')});
       }
-      items.sort((a,b)=>a.minutesAgo-b.minutesAgo);
       return items.slice(0,25);
     }
 
     const queries = TOPIC_QUERIES[topicId] || [topicId];
-    let allRaw = [];
-    const results = await Promise.allSettled(queries.map(q => fetchSingleQuery(q, hours)));
-    results.forEach(r => { if(r.status==='fulfilled' && Array.isArray(r.value)) allRaw = allRaw.concat(r.value); });
-
-    const seen = new Set();
-    const items=[];
-    const requiredKeywords = TOPIC_FILTERS[topicId] || [];
-
+    let allRaw=[];
+    const results = await Promise.allSettled(queries.map(q=>fetchSingleQuery(q, hours)));
+    results.forEach(r=>{ if(r.status==='fulfilled' && Array.isArray(r.value)) allRaw=allRaw.concat(r.value); });
+    const seen=new Set(); const items=[]; const requiredKeywords=TOPIC_FILTERS[topicId]||[];
     for(let i=0;i<allRaw.length;i++){
-      const { titleFull, linkRaw, pubDateStr, source } = allRaw[i];
-      const pubDate = new Date(pubDateStr);
-      const minutesAgo = isNaN(pubDate.getTime()) ? 9999 : Math.floor((Date.now()-pubDate.getTime())/60000);
-      if(minutesAgo > hours*60 + 180) {
-        if(!(topicId==='sosial' || topicId==='kriminal' || topicId==='kritik_publik') || minutesAgo > 24*60+180) continue;
-      }
-      const cleanTitle = (titleFull.split(' - ')[0] || titleFull).trim();
-      if(!cleanTitle) continue;
-      const key = cleanTitle.toLowerCase();
-      if(seen.has(key)) continue;
-      seen.add(key);
-      const t = key;
-      if(requiredKeywords.length > 0){
-        if(!requiredKeywords.some(k => t.includes(k))) continue;
-      }
-      if(topicId==='megawati'){
-        const atletKeywords = ['voli','volley','pevoli','hangestri','red sparks','megatron','proliga','timnas voli','atlet voli','voli putri'];
-        if(atletKeywords.some(k => t.includes(k))) continue;
-      }
-      items.push({ id:`${topicId}-${i}`, source:(source||'Google News').slice(0,30), time:formatTimeAgo(minutesAgo), minutesAgo, title:cleanTitle, url:linkRaw.replace(/&amp;/g,'&'), link:linkRaw.replace(/&amp;/g,'&') });
+      const {titleFull,linkRaw,pubDateStr,source}=allRaw[i];
+      const pubDate=new Date(pubDateStr);
+      const minutesAgo=isNaN(pubDate.getTime())?9999:Math.floor((Date.now()-pubDate.getTime())/60000);
+      if(minutesAgo>hours*60+180){ if(!(topicId==='sosial'||topicId==='kriminal'||topicId==='kritik_publik')||minutesAgo>24*60+180) continue; }
+      const cleanTitle=(titleFull.split(' - ')[0]||titleFull).trim(); if(!cleanTitle) continue;
+      const key=cleanTitle.toLowerCase(); if(seen.has(key)) continue; seen.add(key);
+      const t=key;
+      if(requiredKeywords.length>0){ if(!requiredKeywords.some(k=>t.includes(k))) continue; }
+      if(topicId==='megawati'){ const atlet=['voli','volley','pevoli','hangestri','red sparks','megatron','proliga','timnas voli','atlet voli','voli putri']; if(atlet.some(k=>t.includes(k))) continue; }
+      items.push({id:`${topicId}-${i}`,source:(source||'Google News').slice(0,30),time:formatTimeAgo(minutesAgo),minutesAgo,title:cleanTitle,url:linkRaw.replace(/&amp;/g,'&'),link:linkRaw.replace(/&amp;/g,'&')});
     }
     items.sort((a,b)=>a.minutesAgo-b.minutesAgo);
     return items.slice(0,25);
@@ -319,19 +286,13 @@ export async function GET(req){
   try{
     const { searchParams } = new URL(req.url);
     const filterRaw = searchParams.get('filter') || '3 Jam';
-    let hours = 3;
-    if(filterRaw.includes('6')) hours = 6;
-    else if(filterRaw.includes('24')) hours = 24;
-    else if(filterRaw.includes('3')) hours = 3;
-
-    const topicOrder = ['jakarta','nasional','bencana','pdip','megawati','puan','kritik_publik','dedi_mulyadi','keluarga_jokowi','sosial','kriminal','homeless_media'];
-
+    let hours=3; if(filterRaw.includes('6')) hours=6; else if(filterRaw.includes('24')) hours=24; else if(filterRaw.includes('3')) hours=3;
+    const topicOrder=['jakarta','nasional','bencana','pdip','megawati','puan','kritik_publik','dedi_mulyadi','keluarga_jokowi','sosial','kriminal','homeless_media'];
     const results = await Promise.all(topicOrder.map(async (id)=>{
       const headlines = await fetchRSS(id, hours);
       const clustered = clusterHeadlines(headlines);
-      return { id, title: TOPIC_META[id].title, icon: TOPIC_META[id].icon, volume: `${headlines.length} berita • ${clustered.length} isu`, lastUpdate: `dalam ${id==='homeless_media' ? hours : hours} jam - IG TOTAL POLITIK`, headlines, clusters: clustered };
+      return { id, title: TOPIC_META[id].title, icon: TOPIC_META[id].icon, volume: `${headlines.length} berita • ${clustered.length} isu`, lastUpdate: `dalam ${id==='homeless_media'?hours:hours} jam - ${id==='homeless_media'?'SERPER IG':''}`, headlines, clusters: clustered };
     }));
-
     return NextResponse.json({ success:true, filter:filterRaw, hours, lastSync:new Date().toISOString(), topics: results }, { status:200 });
   }catch(e){
     return NextResponse.json({ success:false, error:String(e), topics:[] }, { status:200 });
