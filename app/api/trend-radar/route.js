@@ -1,11 +1,9 @@
 import { NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 
-// 12 MENU - 11 MENU LAMA INTACT 100% + HOMELESS MEDIA FIX
-// 11 MENU PAKAI FLOW LAMA YANG WORK, HOMELESS MEDIA PAKAI SERPER POSTS ONLY + CAPTION SAMPAI TITIK PERTAMA
-const SERPER_KEY = process.env.SERPER_API_KEY || '111b30b25adda0acef69489c7a9ada6b1715b48b';
+// 12 MENU FINAL - 11 MENU LAMA INTACT + KORUPSI & KPK (PENGGANTI HOMELESS MEDIA)
+// FLOW SAMA SEMUA PAKAI RSS GOOGLE NEWS - GAK ADA SERPER LAGI
 
-// === 11 MENU LAMA - INTACT DARI FILE FINAL BUSHCOO+KRITIK YANG WORK ===
 const TOPIC_QUERIES = {
   jakarta: ['Pemprov DKI Jakarta OR Gubernur DKI'],
   nasional: ['berita nasional Indonesia'],
@@ -44,8 +42,14 @@ const TOPIC_QUERIES = {
     'KDRT OR penganiayaan OR pengeroyokan OR pembacokan',
     'pemerkosaan OR penipuan OR mayat ditemukan OR mutilasi OR tawuran'
   ],
-  // HOMELESS MEDIA - QUERY SESUAI SCREENSHOT 451
-  homeless_media: ['instagram.com/totalpolitikcom'],
+  // PENGGANTI HOMELESS MEDIA - KORUPSI & KPK - 5 QUERY BIAR VOLUME STABIL 25
+  korupsi_kpk: [
+    'korupsi OR kasus korupsi OR korupsi timah OR korupsi pertamina OR korupsi bansos',
+    'OTT KPK OR operasi tangkap tangan OR KPK OTT OR tersangka KPK',
+    'Kejagung OR Kejaksaan Agung OR Kejati OR sita aset koruptor OR gratifikasi OR suap',
+    'koruptor OR tersangka korupsi OR dakwaan korupsi OR sidang korupsi OR vonis korupsi',
+    'KPK OR Komisi Pemberantasan Korupsi OR penyidik KPK OR OTT Bupati OR OTT Wali Kota OR pungli'
+  ],
 };
 
 const TOPIC_FILTERS = {
@@ -73,8 +77,8 @@ const TOPIC_FILTERS = {
     'terharu','syok','kejutan','kejutan ulang tahun','ultah','ulang tahun','klarifikasi','ramai diperbincangkan','media sosial','ob','office boy','renovasi','bikin haru','cari kerja','transjakarta','seleb tiktok','selebgram','tak sengaja','salah kira','romantis','romantis banget','viral di medsos','diperbincangkan','makan cat'
   ],
   kriminal: ['kriminal','bunuh','narkoba','sabu','ganja','curanmor','maling','curi','rampok','begal','jambret','kdrt','aniaya','keroyok','bacok','tembak','perkosa','leceh','tipu','mayat','mutilasi','tawuran'],
-  // HOMELESS - LOOSE, KARENA UDAH STRICT DI SERPER
-  homeless_media: ['totalpolitik','total politik'],
+  // FILTER KORUPSI & KPK - LENGKAP
+  korupsi_kpk: ['korupsi','kpk','ott','kejagung','kejaksaan','koruptor','suap','gratifikasi','pungli','tersangka','dakwaan','vonis','sidang korupsi','kasus korupsi','operasi tangkap tangan','tangkap tangan','sita aset','korupsi timah','korupsi pertamina','korupsi bansos','korupsi bupati','korupsi wali kota','korupsi dana desa','kpk ott','komisi pemberantasan korupsi'],
 };
 
 const TOPIC_META = {
@@ -89,7 +93,7 @@ const TOPIC_META = {
   keluarga_jokowi: { title: 'Keluarga Jokowi', icon: '👨‍👩‍👧‍👦' },
   sosial: { title: 'Sosial & Viral', icon: '💬' },
   kriminal: { title: 'Kriminal', icon: '🦹' },
-  homeless_media: { title: 'Homeless Media', icon: '📸' },
+  korupsi_kpk: { title: 'Korupsi & KPK', icon: '💰' },
 };
 
 function formatTimeAgo(minutes) {
@@ -123,7 +127,7 @@ function clusterHeadlines(headlines, threshold=0.38){
   return clusters.map((cluster, idx)=>{ const main=cluster[0]; const allSources=[...new Set(cluster.map(c=>c.source))]; return { id:`cluster-${idx}`, isCluster:cluster.length>1, count:cluster.length, title:main.title, mainUrl:main.url, time:main.time, minutesAgo:main.minutesAgo, sources:allSources, headlines:cluster }; });
 }
 
-// === FLOW LAMA INTACT UNTUK 11 MENU - JANGAN DIUBAH ===
+// FLOW LAMA INTACT YANG WORK DI SCREENSHOT 453
 async function fetchSingleQuery(q, hours){
   try{
     const fullQ = `${q} when:${hours}h`;
@@ -135,151 +139,8 @@ async function fetchSingleQuery(q, hours){
   }catch{ return []; }
 }
 
-// === SERPER KHUSUS HOMELESS MEDIA - FIX 3 POINT LO ===
-async function callSerper(query, tbs){
-  try{
-    const body = { q: query, gl: 'id', hl: 'id', num: 20 };
-    if(tbs) body.tbs = tbs;
-    const res = await fetch('https://google.serper.dev/search', {
-      method: 'POST',
-      headers: { 'X-API-KEY': SERPER_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-      cache: 'no-store'
-    });
-    if(!res.ok) return [];
-    const data = await res.json();
-    return data.organic || [];
-  }catch{ return []; }
-}
-
-function extractCaptionUntilFirstDot(r){
-  // Prioritas: snippet yang ada caption IG, bukan title
-  let snippet = r.snippet || '';
-  let title = r.title || '';
-
-  // Cari pola "totalpolitikcom on ...: CAPTION"
-  let caption = '';
-  const colonIdx = snippet.indexOf(':');
-  if(colonIdx !== -1){
-    const afterColon = snippet.slice(colonIdx+1).trim();
-    // Hilangkan prefix "Follow Photo by..." yang bukan caption
-    if(afterColon.length > 20){
-      caption = afterColon;
-    }
-  }
-
-  // Fallback ke title jika snippet gak ada caption
-  if(!caption || caption.length < 15){
-    caption = title;
-  }
-
-  // Bersihkan " - Instagram", quote, dll
-  caption = caption.replace(/ - Instagram.*$/i,'').replace(/^["“”']+|["“”']+$/g,'').trim();
-  caption = caption.replace(/^totalpolitikcom\s*[•·|-]\s*/i,'').trim();
-
-  // AMBIL SAMPAI TITIK PERTAMA BIAR KONTEKS KELIATAN
-  // Contoh: "Kepala Badan Gizi Nasional (BGN) Sudaryono mengusulkan agar edukasi gizi melalui program ..." -> sampai titik pertama
-  const dotIdx = caption.indexOf('.');
-  if(dotIdx > 20 && dotIdx < 160){
-    return caption.slice(0, dotIdx+1).trim();
-  }
-  // Kalau gak ada titik, potong 130 char
-  return caption.slice(0, 130).trim();
-}
-
-async function fetchSerperHomeless(hours){
-  try{
-    if(!SERPER_KEY) return [];
-
-    // Mapping filter UI ke tbs Google sesuai screenshot 451
-    let tbs = 'qdr:d'; // Past 24 hours - sesuai screenshot lo
-    if(hours <= 1) tbs = 'qdr:h';
-    else if(hours <= 3) tbs = 'qdr:h3';
-    else if(hours <= 6) tbs = 'qdr:h6';
-    else tbs = 'qdr:d';
-
-    // Query persis kayak screenshot 451: instagram.com/totalpolitikcom
-    const query = 'instagram.com/totalpolitikcom';
-
-    let allItems = [];
-    const seen = new Set();
-
-    // PASS 1: Dengan tbs sesuai filter (Past 24 hours)
-    const organic = await callSerper(query, tbs);
-
-    for(const r of organic){
-      const link = r.link || '';
-      // 2. STRICT TOTAL POLITIK ONLY - HARUS DARI AKUN totalpolitikcom
-      // Link harus mengandung totalpolitikcom, dan harus /p/ atau /reel/ (POSTINGAN, BUKAN PROFILE)
-      if(!link.includes('instagram.com')) continue;
-      if(!link.toLowerCase().includes('totalpolitikcom')) continue;
-      // Hanya ambil postingan, bukan profile page https://www.instagram.com/totalpolitikcom/
-      const isPost = link.includes('/p/') || link.includes('/reel/') || link.includes('/tv/');
-      if(!isPost) continue; // SKIP https://www.instagram.com/totalpolitikcom/ -> ini yang bikin kemarin muncul "Total Politik - Jakarta"
-
-      const key = link.split('?')[0];
-      if(seen.has(key)) continue;
-      seen.add(key);
-
-      let minutesAgo = hours <= 1 ? 30 : hours <= 3 ? 90 : hours <= 6 ? 180 : 360;
-      if(r.date){
-        const d = new Date(r.date);
-        if(!isNaN(d.getTime())) minutesAgo = Math.floor((Date.now() - d.getTime())/60000);
-      }
-
-      // 3. JUDUL DARI CAPTION SAMPAI TITIK PERTAMA
-      const cleanTitle = extractCaptionUntilFirstDot(r);
-
-      if(cleanTitle.length < 10) continue;
-
-      allItems.push({
-        id: `hm-${seen.size}`,
-        source: 'Instagram @totalpolitikcom',
-        time: formatTimeAgo(minutesAgo),
-        minutesAgo,
-        title: cleanTitle,
-        url: link,
-        link
-      });
-    }
-
-    // FALLBACK: Kalau Past 24h kosong, coba all time biar gak kosong total
-    if(allItems.length === 0){
-      const organic2 = await callSerper(query, null);
-      for(const r of organic2){
-        const link = r.link || '';
-        if(!link.includes('instagram.com')) continue;
-        if(!link.toLowerCase().includes('totalpolitikcom')) continue;
-        const isPost = link.includes('/p/') || link.includes('/reel/');
-        if(!isPost) continue;
-        const key = link.split('?')[0];
-        if(seen.has(key)) continue;
-        seen.add(key);
-        allItems.push({
-          id: `hm-all-${seen.size}`,
-          source: 'Instagram @totalpolitikcom',
-          time: formatTimeAgo(720),
-          minutesAgo: 720,
-          title: extractCaptionUntilFirstDot(r),
-          url: link,
-          link
-        });
-      }
-    }
-
-    allItems.sort((a,b)=>a.minutesAgo-b.minutesAgo);
-    return allItems.slice(0,25);
-  }catch{ return []; }
-}
-
 async function fetchRSS(topicId, hours){
   try{
-    // HOMELESS MEDIA PAKAI SERPER - LAINNYA PAKAI FLOW LAMA INTACT
-    if(topicId === 'homeless_media'){
-      return await fetchSerperHomeless(hours);
-    }
-
-    // FLOW LAMA UNTUK 11 MENU - JANGAN DIUBAH (sesuai file FINAL BUSHCOO+KRITIK yang work)
     const queries = TOPIC_QUERIES[topicId] || [topicId];
     let allRaw = [];
     const results = await Promise.all(queries.map(q => fetchSingleQuery(q, hours)));
@@ -294,7 +155,7 @@ async function fetchRSS(topicId, hours){
       const pubDate = new Date(pubDateStr);
       const minutesAgo = isNaN(pubDate.getTime()) ? 9999 : Math.floor((Date.now()-pubDate.getTime())/60000);
       if(minutesAgo > hours*60 + 180) {
-        if(!(topicId==='sosial' || topicId==='kriminal' || topicId==='kritik_publik') || minutesAgo > 24*60+180) continue;
+        if(!(topicId==='sosial' || topicId==='kriminal' || topicId==='kritik_publik' || topicId==='korupsi_kpk') || minutesAgo > 24*60+180) continue;
       }
       const cleanTitle = (titleFull.split(' - ')[0] || titleFull).trim();
       if(!cleanTitle) continue;
@@ -328,12 +189,12 @@ export async function GET(req){
     else if(filterRaw.includes('24')) hours = 24;
     else if(filterRaw.includes('3')) hours = 3;
 
-    const topicOrder = ['jakarta','nasional','bencana','pdip','megawati','puan','kritik_publik','dedi_mulyadi','keluarga_jokowi','sosial','kriminal','homeless_media'];
+    const topicOrder = ['jakarta','nasional','bencana','pdip','megawati','puan','kritik_publik','dedi_mulyadi','keluarga_jokowi','sosial','kriminal','korupsi_kpk'];
 
     const results = await Promise.all(topicOrder.map(async (id)=>{
       const headlines = await fetchRSS(id, hours);
       const clustered = clusterHeadlines(headlines);
-      return { id, title: TOPIC_META[id].title, icon: TOPIC_META[id].icon, volume: `${headlines.length} berita • ${clustered.length} isu`, lastUpdate: `dalam ${hours} jam - ${id==='homeless_media'?'SERPER POSTS':''}`, headlines, clusters: clustered };
+      return { id, title: TOPIC_META[id].title, icon: TOPIC_META[id].icon, volume: `${headlines.length} berita • ${clustered.length} isu`, lastUpdate: `dalam ${hours} jam - REAL`, headlines, clusters: clustered };
     }));
 
     return NextResponse.json({ success:true, filter:filterRaw, hours, lastSync:new Date().toISOString(), topics: results }, { status:200 });
