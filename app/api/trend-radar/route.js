@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 
-// 11 MENU - SOSIAL VIRAL ALL IN - LUCU WARGA + DILUAR NALAR + SOSIAL KAMPUNG
+// 11 MENU - FINAL BUSHCOO - LUCU WARGA + TERHARU + KLARIFIKASI + OB + RENOVASI
 const TOPIC_QUERIES = {
   jakarta: ['Pemprov DKI Jakarta OR Gubernur DKI'],
   nasional: ['berita nasional Indonesia'],
@@ -12,16 +12,19 @@ const TOPIC_QUERIES = {
   kritik_publik: ['kritik pemerintah OR demo mahasiswa OR unjuk rasa'],
   dedi_mulyadi: ['Dedi Mulyadi OR Gubernur Jawa Barat'],
   keluarga_jokowi: ['Jokowi OR Gibran OR Keluarga Jokowi'],
-  // SOSIAL & VIRAL - ALL IN SESUAI DISKUSI
+  // SOSIAL & VIRAL - FINAL BUSHCOO EDITION - 10 QUERIES
   sosial: [
     'viral OR video viral OR tiktok viral OR viral medsos',
     'fenomena sosial OR curhatan netizen OR curhat viral OR netizen heboh',
-    'kisah haru OR kisah mengharukan OR kisah inspiratif OR inspiratif',
-    'cerita unik OR kejadian unik OR tradisi unik OR ritual unik',
-    'fenomena aneh OR anomali OR kejadian aneh OR di luar nalar OR gak masuk akal OR diluar nalar',
-    'kejadian lucu OR tingkah lucu OR kelakuan lucu OR aksi kocak OR kocak OR ngakak OR bikin ngakak OR lawak',
-    'emak-emak OR bapak-bapak OR bocil OR bocah OR kakek viral OR nenek viral OR ojol OR ojek online',
-    'kelakuan warga OR tingkah warga OR potret warga OR warga +62 OR nyeleneh OR absurd OR ajaib OR nyentrik OR prank OR usil OR jahil OR hajatan OR arisan OR gotong royong'
+    'kisah haru OR kisah mengharukan OR kisah inspiratif OR terharu OR bikin haru OR mengharukan',
+    'cerita unik OR kejadian unik OR tradisi unik OR ritual unik OR fenomena aneh OR anomali',
+    'di luar nalar OR gak masuk akal OR diluar nalar OR kejadian aneh OR ajaib OR absurd OR nyeleneh',
+    'kejadian lucu OR tingkah lucu OR kelakuan lucu OR aksi kocak OR kocak OR ngakak OR bikin ngakak OR lawak OR humor warga',
+    'emak-emak OR bapak-bapak OR bocil OR bocah OR kakek viral OR nenek viral OR ojol OR ojek online OR warga +62',
+    'kelakuan warga OR tingkah warga OR potret warga OR prank OR usil OR jahil OR hajatan OR arisan OR gotong royong',
+    // QUERY BARU - KHUSUS BUSHCOO STYLE
+    'terharu OR syok OR kejutan OR kejutan ulang tahun OR ultah OR ulang tahun OR mengharukan',
+    'klarifikasi OR ramai diperbincangkan OR media sosial OR OB OR office boy OR renovasi OR cari kerja OR transjakarta OR seleb tiktok OR romantis banget OR tak sengaja'
   ],
   kriminal: [
     'pembunuhan OR pembunuhan sadis',
@@ -42,9 +45,16 @@ const TOPIC_FILTERS = {
   kritik_publik: ['kritik','demo','unjuk rasa','protes'],
   dedi_mulyadi: ['dedi mulyadi','kdm','gubernur jawa barat','kang dedi'],
   keluarga_jokowi: ['jokowi','gibran','kaesang','keluarga jokowi'],
-  // FILTER SOSIAL - ALL IN
+  // FILTER SOSIAL - FINAL BUSHCOO
   sosial: [
-    'viral','video viral','tiktok','fenomena sosial','curhatan','curhat','netizen','kisah haru','mengharukan','inspiratif','cerita unik','kejadian unik','tradisi unik','fenomena aneh','anomali','aneh','di luar nalar','diluar nalar','gak masuk akal','lucu','kocak','ngakak','bikin ngakak','lawak','humor','tingkah','kelakuan','aksi kocak','emak-emak','bapak-bapak','bocil','bocah','kakek','nenek','ojol','ojek','warga','warga +62','kelakuan warga','tingkah warga','potret warga','nyeleneh','absurd','ajaib','nyentrik','prank','usil','jahil','hajatan','arisan','gotong royong','meme'
+    // Base viral
+    'viral','video viral','tiktok','fenomena sosial','curhatan','curhat','netizen','kisah haru','mengharukan','inspiratif','cerita unik','kejadian unik','tradisi unik','fenomena aneh','anomali','aneh',
+    // Lucu warga
+    'lucu','kocak','ngakak','bikin ngakak','lawak','humor','tingkah','kelakuan','aksi kocak','emak-emak','bapak-bapak','bocil','bocah','kakek','nenek','ojol','ojek','warga','warga +62','kelakuan warga','tingkah warga','potret warga',
+    // Diluar nalar
+    'nyeleneh','absurd','ajaib','nyentrik','prank','usil','jahil','hajatan','arisan','gotong royong','di luar nalar','diluar nalar','gak masuk akal','meme',
+    // BARU - BUSHCOO STYLE - 8 KEYWORD LO + 6 TAMBAHAN GUE
+    'terharu','syok','kejutan','kejutan ulang tahun','ultah','ulang tahun','klarifikasi','ramai diperbincangkan','media sosial','ob','office boy','renovasi','bikin haru','cari kerja','transjakarta','seleb tiktok','selebgram','tak sengaja','salah kira','romantis','romantis banget','bikin syok','viral di medsos','diperbincangkan','makan cat','yogurt'
   ],
   kriminal: ['kriminal','bunuh','narkoba','sabu','ganja','curanmor','maling','curi','rampok','begal','jambret','kdrt','aniaya','keroyok','bacok','tembak','perkosa','leceh','tipu','mayat','mutilasi','tawuran'],
 };
@@ -112,11 +122,6 @@ async function fetchRSS(topicId, hours){
     const results = await Promise.all(queries.map(q => fetchSingleQuery(q, hours)));
     results.forEach(r => allRaw = allRaw.concat(r));
 
-    if (allRaw.length === 0 && (topicId === 'sosial' || topicId === 'kriminal')) {
-      const fallbackQ = topicId === 'sosial' ? 'viral OR kocak OR lucu' : 'kriminal OR pembunuhan';
-      allRaw = await fetchSingleQuery(fallbackQ, 24);
-    }
-
     const seen = new Set();
     const items=[];
     const requiredKeywords = TOPIC_FILTERS[topicId] || [];
@@ -165,7 +170,7 @@ export async function GET(req){
     const results = await Promise.all(topicOrder.map(async (id)=>{
       const headlines = await fetchRSS(id, hours);
       const clustered = clusterHeadlines(headlines);
-      return { id, title: TOPIC_META[id].title, icon: TOPIC_META[id].icon, volume: `${headlines.length} berita • ${clustered.length} isu`, lastUpdate: `dalam ${hours} jam - ALL IN`, headlines, clusters: clustered };
+      return { id, title: TOPIC_META[id].title, icon: TOPIC_META[id].icon, volume: `${headlines.length} berita • ${clustered.length} isu`, lastUpdate: `dalam ${hours} jam - BUSHCOO FINAL`, headlines, clusters: clustered };
     }));
 
     return NextResponse.json({ success:true, filter:filterRaw, hours, lastSync:new Date().toISOString(), topics: results }, { status:200 });
