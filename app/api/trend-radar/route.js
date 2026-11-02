@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 
-// 12 MENU FINAL - KRITIK PUBLIK FIX V3 - HANYA BLOCK SPORT + LUAR NEGERI, GAK WAJIB POLITIK INDONESIA
-// SESUAI REVISI USER: "tidak harus ada kata politik Indonesia, tapi lo block terkait sport dan informasi di luar negeri"
+// 12 MENU FINAL - SOSIAL & VIRAL 13 QUERY (TAMBAH 3 QUERY BARU GURU/SEKOLAH, OJOL/SATPAM/SOUND HOREG, TETANGGA/KOS/WARUNG)
+// 11 MENU LAIN INTACT 100%
 
 const TOPIC_QUERIES = {
   jakarta: ['Pemprov DKI Jakarta OR Gubernur DKI'],
@@ -23,6 +23,7 @@ const TOPIC_QUERIES = {
   ],
   dedi_mulyadi: ['Dedi Mulyadi OR Gubernur Jawa Barat'],
   keluarga_jokowi: ['Jokowi OR Gibran OR Keluarga Jokowi'],
+  // SOSIAL & VIRAL - 13 QUERY (10 LAMA + 3 BARU)
   sosial: [
     'viral OR video viral OR tiktok viral OR viral medsos',
     'fenomena sosial OR curhatan netizen OR curhat viral OR netizen heboh',
@@ -33,7 +34,11 @@ const TOPIC_QUERIES = {
     'emak-emak OR bapak-bapak OR bocil OR bocah OR kakek viral OR nenek viral OR ojol OR ojek online OR warga +62',
     'kelakuan warga OR tingkah warga OR potret warga OR prank OR usil OR jahil OR hajatan OR arisan OR gotong royong',
     'terharu OR syok OR kejutan OR kejutan ulang tahun OR ultah OR ulang tahun OR mengharukan',
-    'klarifikasi OR ramai diperbincangkan OR media sosial OR OB OR office boy OR renovasi OR cari kerja OR transjakarta OR seleb tiktok OR romantis banget OR tak sengaja'
+    'klarifikasi OR ramai diperbincangkan OR media sosial OR OB OR office boy OR renovasi OR cari kerja OR transjakarta OR seleb tiktok OR romantis banget OR tak sengaja',
+    // 3 QUERY BARU - GURU/SEKOLAH, OJOL/SATPAM/SOUND HOREG, TETANGGA/KOS/WARUNG
+    'guru viral OR murid viral OR sekolah viral OR siswa viral OR dosen viral OR murid dihukum OR guru honorer viral',
+    'ojol viral OR driver ojol viral OR kurir viral OR satpam viral OR satpol pp viral OR parkir liar viral OR pungli viral OR sound horeg OR joget viral',
+    'tetangga viral OR kos viral OR kontrakan viral OR kelakuan tetangga OR warung viral OR minimarket viral OR minta maaf viral OR spill viral OR kepergok viral'
   ],
   kriminal: [
     'pembunuhan OR pembunuhan sadis',
@@ -73,7 +78,11 @@ const TOPIC_FILTERS = {
     'viral','video viral','tiktok','fenomena sosial','curhatan','curhat','netizen','kisah haru','mengharukan','inspiratif','cerita unik','kejadian unik','tradisi unik','fenomena aneh','anomali','aneh',
     'lucu','kocak','ngakak','bikin ngakak','lawak','humor','tingkah','kelakuan','aksi kocak','emak-emak','bapak-bapak','bocil','bocah','kakek','nenek','ojol','ojek','warga','warga +62','kelakuan warga','tingkah warga','potret warga',
     'nyeleneh','absurd','ajaib','nyentrik','prank','usil','jahil','hajatan','arisan','gotong royong','di luar nalar','diluar nalar','gak masuk akal','meme',
-    'terharu','syok','kejutan','kejutan ulang tahun','ultah','ulang tahun','klarifikasi','ramai diperbincangkan','media sosial','ob','office boy','renovasi','bikin haru','cari kerja','transjakarta','seleb tiktok','selebgram','tak sengaja','salah kira','romantis','romantis banget','viral di medsos','diperbincangkan','makan cat'
+    'terharu','syok','kejutan','kejutan ulang tahun','ultah','ulang tahun','klarifikasi','ramai diperbincangkan','media sosial','ob','office boy','renovasi','bikin haru','cari kerja','transjakarta','seleb tiktok','selebgram','tak sengaja','salah kira','romantis','romantis banget','viral di medsos','diperbincangkan','makan cat',
+    // KEYWORDS BARU
+    'guru viral','murid viral','sekolah viral','siswa viral','dosen viral','murid dihukum','guru honorer','guru honorer viral',
+    'driver ojol','ojol viral','kurir viral','satpam viral','satpol pp','parkir liar','pungli viral','sound horeg','joget viral','joget tiktok',
+    'tetangga viral','kos viral','kontrakan viral','kelakuan tetangga','warung viral','minimarket viral','minta maaf viral','spill viral','kepergok viral','klarifikasi minta maaf'
   ],
   kriminal: ['kriminal','bunuh','narkoba','sabu','ganja','curanmor','maling','curi','rampok','begal','jambret','kdrt','aniaya','keroyok','bacok','tembak','perkosa','leceh','tipu','mayat','mutilasi','tawuran'],
   korupsi_kpk: ['korupsi','kpk','ott','kejagung','kejaksaan','koruptor','suap','gratifikasi','pungli','tersangka','dakwaan','vonis','sidang korupsi','kasus korupsi','operasi tangkap tangan','tangkap tangan','sita aset','korupsi timah','korupsi pertamina','korupsi bansos','korupsi bupati','korupsi wali kota','korupsi dana desa','kpk ott','komisi pemberantasan korupsi'],
@@ -147,7 +156,6 @@ async function fetchRSS(topicId, hours){
     const items=[];
     const requiredKeywords = TOPIC_FILTERS[topicId] || [];
 
-    // REVISI V3 - KRITIK PUBLIK HANYA BLOCK SPORT + LUAR NEGERI, GAK WAJIB POLITIK INDONESIA
     const SPORT_BLACKLIST = [
       'motogp','moto gp','pebalap','pembalap','formula 1','f1 ','motogp qatar','qatar motogp',
       'liga 1','liga inggris','premier league','serie a','la liga','persib','persija','arema','persebaya',
@@ -182,10 +190,8 @@ async function fetchRSS(topicId, hours){
       }
 
       if(topicId==='kritik_publik'){
-        // HANYA BLOCK SPORT + LUAR NEGERI - SESUAI REVISI
         if(SPORT_BLACKLIST.some(k => t.includes(k))) continue;
         if(FOREIGN_BLACKLIST.some(k => t.includes(k))) continue;
-        // GAK ADA CEK WAJIB POLITIK INDONESIA LAGI
       }
 
       if(topicId==='megawati'){
