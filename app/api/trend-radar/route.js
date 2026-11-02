@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 
-// 12 MENU FINAL - 11 MENU LAMA INTACT + KORUPSI & KPK (PENGGANTI HOMELESS MEDIA)
-// FLOW SAMA SEMUA PAKAI RSS GOOGLE NEWS - GAK ADA SERPER LAGI
+// 12 MENU FINAL - KRITIK PUBLIK FIX POLITIK INDONESIA ONLY (NO SPORT, NO LUAR NEGERI)
+// 11 MENU LAIN INTACT DARI SCREENSHOT 453
 
 const TOPIC_QUERIES = {
   jakarta: ['Pemprov DKI Jakarta OR Gubernur DKI'],
@@ -11,15 +11,16 @@ const TOPIC_QUERIES = {
   pdip: ['PDI Perjuangan OR PDIP'],
   megawati: ['Megawati Soekarnoputri OR Ketua Umum PDIP'],
   puan: ['Puan Maharani'],
+  // KRITIK PUBLIK - 8 QUERY KHUSUS POLITIK INDONESIA + KEBIJAKAN MENTERI/KEPALA DAERAH
   kritik_publik: [
-    'kritik pemerintah OR kritik kebijakan OR kritik presiden OR kritik menteri',
-    'demo OR unjuk rasa OR aksi massa OR aksi unjuk rasa OR demo mahasiswa OR demo buruh OR demo ojol',
-    'tuai kritik OR banjir kritik OR panen kritik OR tuai kecaman OR dihujat OR dikecam OR kecaman publik OR viral kecam',
-    'desak mundur OR tuntut mundur OR desak copot OR tuntut copot OR mosi tidak percaya OR lengser',
-    'tolak RUU OR tolak kenaikan OR tolak pajak OR tolak Tapera OR protes kebijakan OR polemik OR kontroversi OR blunder',
-    'DPR kritik OR DPRD kritik OR anggota dewan kritik OR legislator kritik OR interpelasi OR hak angket OR DPR kecam',
-    'boikot OR petisi OR tagar protes OR suara rakyat OR keluhan warga OR aspirasi rakyat',
-    'pengamat kritik OR pakar kritik OR aktivis kritik OR LSM kritik OR soroti kebijakan OR sindir OR sentil'
+    'kritik pemerintah Indonesia OR kritik kebijakan pemerintah OR kritik presiden Indonesia OR kritik istana negara',
+    'kritik menteri OR menteri dikritik OR statement menteri tuai kritik OR kebijakan menteri dikritik OR pernyataan menteri dikecam',
+    'kritik kepala daerah OR gubernur dikritik OR bupati dikritik OR wali kota dikritik OR kebijakan kepala daerah dikritik OR pernyataan gubernur dikritik',
+    'demo tolak kebijakan pemerintah OR unjuk rasa tolak RUU Indonesia OR aksi massa tolak kebijakan OR demo tolak kebijakan menteri OR demo tolak kebijakan gubernur',
+    'DPR kritik pemerintah OR DPR kritik menteri OR DPRD kritik kepala daerah OR anggota dewan kritik kebijakan OR interpelasi menteri OR hak angket kebijakan',
+    'desak mundur menteri OR desak mundur pejabat Indonesia OR tuntut mundur kepala daerah OR desak copot menteri OR mosi tidak percaya menteri',
+    'tolak RUU politik Indonesia OR tolak kebijakan pemerintah Indonesia OR polemik kebijakan menteri OR kontroversi kebijakan kepala daerah OR blunder kebijakan pemerintah',
+    'pengamat politik kritik pemerintah OR pakar kritik kebijakan Indonesia OR aktivis kritik menteri OR boikot kebijakan pemerintah OR petisi tolak kebijakan pemerintah'
   ],
   dedi_mulyadi: ['Dedi Mulyadi OR Gubernur Jawa Barat'],
   keluarga_jokowi: ['Jokowi OR Gibran OR Keluarga Jokowi'],
@@ -42,7 +43,6 @@ const TOPIC_QUERIES = {
     'KDRT OR penganiayaan OR pengeroyokan OR pembacokan',
     'pemerkosaan OR penipuan OR mayat ditemukan OR mutilasi OR tawuran'
   ],
-  // PENGGANTI HOMELESS MEDIA - KORUPSI & KPK - 5 QUERY BIAR VOLUME STABIL 25
   korupsi_kpk: [
     'korupsi OR kasus korupsi OR korupsi timah OR korupsi pertamina OR korupsi bansos',
     'OTT KPK OR operasi tangkap tangan OR KPK OTT OR tersangka KPK',
@@ -59,14 +59,15 @@ const TOPIC_FILTERS = {
   pdip: ['pdip','pdi perjuangan','pdi-p'],
   megawati: ['megawati','mega soekarnoputri','ketua umum pdip','bu mega'],
   puan: ['puan maharani','puan'],
+  // FILTER KRITIK PUBLIK - HARUS POLITIK INDONESIA
   kritik_publik: [
     'kritik','mengkritik','dikritik','kecam','mengkecam','dikecam','kecaman','soroti','disoroti','sentil','disentil','sindir','disindir',
-    'demo','unjuk rasa','aksi massa','aksi unjuk rasa','demo mahasiswa','demo buruh','protes','memprotes','diprotes',
-    'desak','tuntut','mosi','lengser','copot','pecat','mundur','desak mundur','tuntut mundur',
-    'tolak','penolakan','tolak ruu','tolak kenaikan','polemik','kontroversi','blunder','gagalkan','batalkan',
-    'tuai kritik','banjir kritik','panen kritik','tuai kecaman','dihujat','hujat','viral kecam','kecaman publik',
-    'dpr kritik','dprd kritik','anggota dewan','legislator','komisi dpr','interpelasi','hak angket','dewan kritik',
-    'boikot','petisi','tagar','suara rakyat','keluhan warga','aspirasi rakyat','aspirasi','pengamat kritik','pakar kritik','aktivis kritik','lsm','lsm kritik'
+    'demo','unjuk rasa','aksi massa','protes','memprotes','diprotes',
+    'desak','tuntut','mosi','lengser','copot','pecat','mundur',
+    'tolak','penolakan','polemik','kontroversi','blunder',
+    'tuai kritik','banjir kritik','dihujat','hujat',
+    'dpr kritik','dprd kritik','interpelasi','hak angket',
+    'boikot','petisi','suara rakyat','keluhan warga','pengamat kritik','pakar kritik'
   ],
   dedi_mulyadi: ['dedi mulyadi','kdm','gubernur jawa barat','kang dedi'],
   keluarga_jokowi: ['jokowi','gibran','kaesang','keluarga jokowi'],
@@ -77,7 +78,6 @@ const TOPIC_FILTERS = {
     'terharu','syok','kejutan','kejutan ulang tahun','ultah','ulang tahun','klarifikasi','ramai diperbincangkan','media sosial','ob','office boy','renovasi','bikin haru','cari kerja','transjakarta','seleb tiktok','selebgram','tak sengaja','salah kira','romantis','romantis banget','viral di medsos','diperbincangkan','makan cat'
   ],
   kriminal: ['kriminal','bunuh','narkoba','sabu','ganja','curanmor','maling','curi','rampok','begal','jambret','kdrt','aniaya','keroyok','bacok','tembak','perkosa','leceh','tipu','mayat','mutilasi','tawuran'],
-  // FILTER KORUPSI & KPK - LENGKAP
   korupsi_kpk: ['korupsi','kpk','ott','kejagung','kejaksaan','koruptor','suap','gratifikasi','pungli','tersangka','dakwaan','vonis','sidang korupsi','kasus korupsi','operasi tangkap tangan','tangkap tangan','sita aset','korupsi timah','korupsi pertamina','korupsi bansos','korupsi bupati','korupsi wali kota','korupsi dana desa','kpk ott','komisi pemberantasan korupsi'],
 };
 
@@ -127,7 +127,6 @@ function clusterHeadlines(headlines, threshold=0.38){
   return clusters.map((cluster, idx)=>{ const main=cluster[0]; const allSources=[...new Set(cluster.map(c=>c.source))]; return { id:`cluster-${idx}`, isCluster:cluster.length>1, count:cluster.length, title:main.title, mainUrl:main.url, time:main.time, minutesAgo:main.minutesAgo, sources:allSources, headlines:cluster }; });
 }
 
-// FLOW LAMA INTACT YANG WORK DI SCREENSHOT 453
 async function fetchSingleQuery(q, hours){
   try{
     const fullQ = `${q} when:${hours}h`;
@@ -150,6 +149,12 @@ async function fetchRSS(topicId, hours){
     const items=[];
     const requiredKeywords = TOPIC_FILTERS[topicId] || [];
 
+    // BLACKLIST UNTUK KRITIK PUBLIK - NO SPORT, NO LUAR NEGERI, NO ENTERTAINMENT VIRAL
+    const SPORT_BLACKLIST = ['motogp','moto gp','pebalap','pembalap','formula 1','f1 ','liga 1','persib','persija','timnas u-','piala dunia','bulutangkis','badminton','tenis','sepak bola','sepakbola','bola voli','jack miller','marquez','rossi','qatar motogp','motogp qatar','19 pebalap','19 pembalap'];
+    const FOREIGN_BLACKLIST = ['singapura','malaysia','thailand','filipina','vietnam','china kritik','tiongkok kritik','amerika serikat kritik',' inggris kritik','australia kritik','jepang kritik','korea selatan','rusia kritik','ukraina kritik','israel kritik',' kritik ke singapura',' kritik singapura',' kritik malaysia'];
+    const ENTERTAINMENT_VIRAL_BLACKLIST = ['kiky saputri','rakyat jelata','jet pribadi','video lawas kiky','viral lagi','seruan boikot menguat','pasar modal menjawab kritik','pencekalan tv nasional','dosen ugm media wahyudi','reforma pasar modal'];
+    const POLITIK_INDONESIA_MUST = ['pemerintah','presiden','menteri','kebijakan','dpr','dprd','gubernur','bupati','wali kota','walikota','kepala daerah','istana','parlemen','senayan','partai','politik','ruu','pejabat','kementerian','kabinet','pilkada','pajak','ppn','apbn','undang-undang','uu ','kebijakan pemerintah','pernyataan menteri','statement menteri','hashim','prabowo','gibran','jokowi','puan','megawati','pdip','dedi mulyadi','kdm'];
+
     for(let i=0;i<allRaw.length;i++){
       const { titleFull, linkRaw, pubDateStr, source } = allRaw[i];
       const pubDate = new Date(pubDateStr);
@@ -166,6 +171,20 @@ async function fetchRSS(topicId, hours){
 
       if(requiredKeywords.length > 0){
         if(!requiredKeywords.some(k => t.includes(k))) continue;
+      }
+
+      // FILTER KHUSUS KRITIK PUBLIK - POLITIK INDONESIA ONLY
+      if(topicId==='kritik_publik'){
+        // 1. BLACKLIST SPORT
+        if(SPORT_BLACKLIST.some(k => t.includes(k))) continue;
+        // 2. BLACKLIST LUAR NEGERI
+        if(FOREIGN_BLACKLIST.some(k => t.includes(k))) continue;
+        // 3. BLACKLIST ENTERTAINMENT VIRAL YANG GAK ADA HUBUNGAN KEBIJAKAN
+        if(ENTERTAINMENT_VIRAL_BLACKLIST.some(k => t.includes(k))) continue;
+        // 4. HARUS ADA UNSUR POLITIK INDONESIA
+        if(!POLITIK_INDONESIA_MUST.some(k => t.includes(k))) continue;
+        // 5. EXCLUDE JUDUL YANG HANYA TENTANG MOTOGP/QATAR TANPA POLITIK
+        if(t.includes('motogp') || t.includes('pebalap tolak') || t.includes('pembalap tolak')) continue;
       }
 
       if(topicId==='megawati'){
