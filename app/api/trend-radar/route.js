@@ -10,7 +10,7 @@ const TOPIC_QUERIES = {
   bencana: ['bencana alam OR gempa bumi OR banjir'],
   pdip: ['PDI Perjuangan OR PDIP'],
   megawati: ['Megawati Soekarnoputri OR Ketua Umum PDIP'],
-  puan: ['Puan Maharani'],
+  puan: ['Puan Maharani OR Ketua DPR'],
   kritik_publik: [
     'kritik pemerintah OR kritik kebijakan OR kritik presiden OR kritik menteri OR kritik pejabat',
     'demo OR unjuk rasa OR aksi massa OR aksi unjuk rasa OR demo mahasiswa OR demo buruh OR demo tolak kebijakan',
