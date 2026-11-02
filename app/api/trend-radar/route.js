@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 
-// 12 MENU FINAL - KRITIK PUBLIK FIX V2 - RELAX (SPORT + LUAR NEGERI ONLY)
-// 11 MENU LAIN INTACT 100% DARI SCREENSHOT 453 YANG WORK
+// 12 MENU FINAL - KRITIK PUBLIK FIX V3 - HANYA BLOCK SPORT + LUAR NEGERI, GAK WAJIB POLITIK INDONESIA
+// SESUAI REVISI USER: "tidak harus ada kata politik Indonesia, tapi lo block terkait sport dan informasi di luar negeri"
 
 const TOPIC_QUERIES = {
   jakarta: ['Pemprov DKI Jakarta OR Gubernur DKI'],
@@ -11,16 +11,15 @@ const TOPIC_QUERIES = {
   pdip: ['PDI Perjuangan OR PDIP'],
   megawati: ['Megawati Soekarnoputri OR Ketua Umum PDIP'],
   puan: ['Puan Maharani'],
-  // KRITIK PUBLIK - 8 QUERY POLITIK INDONESIA - MENTERI/KEPALA DAERAH (SUDAH DIPERBAIKI, GAK GENERIK TOLAK DOANG)
   kritik_publik: [
-    'kritik pemerintah Indonesia OR kritik kebijakan pemerintah OR kritik presiden Indonesia OR kritik istana negara',
-    'kritik menteri OR menteri dikritik OR statement menteri tuai kritik OR kebijakan menteri dikritik OR pernyataan menteri dikecam OR menteri disorot',
-    'kritik kepala daerah OR gubernur dikritik OR bupati dikritik OR wali kota dikritik OR kebijakan kepala daerah dikritik OR pernyataan gubernur dikritik',
-    'demo tolak kebijakan pemerintah OR unjuk rasa tolak RUU Indonesia OR aksi massa tolak kebijakan OR demo tolak kebijakan menteri OR demo tolak PPN OR demo tolak pajak',
-    'DPR kritik pemerintah OR DPR kritik menteri OR DPRD kritik kepala daerah OR anggota dewan kritik kebijakan OR interpelasi menteri OR komisi DPR kritik',
-    'desak mundur menteri OR desak mundur pejabat Indonesia OR tuntut mundur kepala daerah OR desak copot menteri OR mosi tidak percaya',
-    'tolak RUU politik OR tolak kebijakan pemerintah Indonesia OR polemik kebijakan menteri OR kontroversi kebijakan kepala daerah OR blunder kebijakan',
-    'pengamat politik kritik pemerintah OR pakar kritik kebijakan Indonesia OR aktivis kritik menteri OR sindir menteri OR sentil kebijakan OR soroti kebijakan'
+    'kritik pemerintah OR kritik kebijakan OR kritik presiden OR kritik menteri OR kritik pejabat',
+    'demo OR unjuk rasa OR aksi massa OR aksi unjuk rasa OR demo mahasiswa OR demo buruh OR demo tolak kebijakan',
+    'tuai kritik OR banjir kritik OR panen kritik OR tuai kecaman OR dihujat OR dikecam OR kecaman publik OR viral dikecam',
+    'desak mundur OR tuntut mundur OR desak copot OR tuntut copot OR mosi tidak percaya OR lengser',
+    'tolak RUU OR tolak kebijakan OR tolak kenaikan OR protes kebijakan OR polemik OR kontroversi OR blunder OR boikot kebijakan',
+    'DPR kritik OR DPRD kritik OR anggota dewan kritik OR legislator kritik OR interpelasi OR hak angket OR DPR kecam',
+    'boikot OR petisi OR tagar protes OR suara rakyat OR keluhan warga OR aspirasi rakyat OR kritik kebijakan',
+    'pengamat kritik OR pakar kritik OR aktivis kritik OR LSM kritik OR soroti kebijakan OR sindir OR sentil OR kecam kebijakan'
   ],
   dedi_mulyadi: ['Dedi Mulyadi OR Gubernur Jawa Barat'],
   keluarga_jokowi: ['Jokowi OR Gibran OR Keluarga Jokowi'],
@@ -148,16 +147,26 @@ async function fetchRSS(topicId, hours){
     const items=[];
     const requiredKeywords = TOPIC_FILTERS[topicId] || [];
 
-    // FILTER KRITIK PUBLIK V2 - CUMA SPORT + LUAR NEGERI, GAK ADA ENTERTAINMENT BLACKLIST LAGI
-    const SPORT_BLACKLIST = ['motogp','moto gp','pebalap motogp','pembalap motogp','19 pebalap tolak','19 pembalap tolak','motogp qatar','qatar motogp','formula 1 tolak','f1 tolak','jack miller sebut 19 pebalap'];
-    const FOREIGN_ONLY_BLACKLIST = ['perkeras kritik ke singapura','kritik ke singapura','kritik singapura di tengah','indonesia perkeras kritik'];
-    const POLITIK_MUST_V2 = ['pemerintah','presiden','menteri','kebijakan','dpr','dprd','gubernur','bupati','wali kota','walikota','kepala daerah','istana','parlemen','senayan','partai','politik','ruu','pejabat','kementerian','kabinet','pilkada','pajak','ppn','apbn','undang-undang','uu ','mahfud','hashim','prabowo','jokowi','gibran','puan','megawati','pdip','anies','dedi mulyadi','kdm','hasim','menteri keuangan','menkeu','sahroni','ahmad sahroni','puan maharani','prabowo subianto','gibran rakabuming','kebijakan pemerintah','pernyataan menteri','statement menteri','kebijakan menteri','pemerintah indonesia','kritik pemerintah','kritik kebijakan'];
+    // REVISI V3 - KRITIK PUBLIK HANYA BLOCK SPORT + LUAR NEGERI, GAK WAJIB POLITIK INDONESIA
+    const SPORT_BLACKLIST = [
+      'motogp','moto gp','pebalap','pembalap','formula 1','f1 ','motogp qatar','qatar motogp',
+      'liga 1','liga inggris','premier league','serie a','la liga','persib','persija','arema','persebaya',
+      'piala dunia','piala asia','timnas u-','timnas indonesia vs','timnas sepak bola',
+      'bulutangkis','badminton','bwf','tenis','sepak bola','sepakbola','bola voli','voli putri',
+      'jack miller','marc marquez','valentino rossi','pecco bagnaia','19 pebalap','19 pembalap','motogp tolak'
+    ];
+    const FOREIGN_BLACKLIST = [
+      'singapura','malaysia','thailand','filipina','vietnam','kamboja','myanmar','laos','brunei',
+      'china','tiongkok','amerika serikat','amerika kritik','inggris','britania','australia','jepang','korea selatan','korea utara',
+      'rusia','ukraina','israel','palestina','iran','irak','suriah','turki','qatar','arab saudi','uni emirat arab','uea',
+      'kritik ke singapura','kritik singapura','kritik malaysia','perkeras kritik ke singapura','indonesia perkeras kritik',
+      'kritik pemerintah singapura','kritik pemerintah malaysia','kritik pemerintah china'
+    ];
 
     for(let i=0;i<allRaw.length;i++){
       const { titleFull, linkRaw, pubDateStr, source } = allRaw[i];
       const pubDate = new Date(pubDateStr);
       const minutesAgo = isNaN(pubDate.getTime()) ? 9999 : Math.floor((Date.now()-pubDate.getTime())/60000);
-      // ALLOW 24 JAM UNTUK KRITIK PUBLIK BIAR GAK KOSONG DI 3 JAM
       if(minutesAgo > hours*60 + 180) {
         if(!(topicId==='sosial' || topicId==='kriminal' || topicId==='kritik_publik' || topicId==='korupsi_kpk') || minutesAgo > 24*60+180) continue;
       }
@@ -173,12 +182,10 @@ async function fetchRSS(topicId, hours){
       }
 
       if(topicId==='kritik_publik'){
-        // 1. BLOCK SPORT ONLY (MotoGP, pebalap)
+        // HANYA BLOCK SPORT + LUAR NEGERI - SESUAI REVISI
         if(SPORT_BLACKLIST.some(k => t.includes(k))) continue;
-        // 2. BLOCK LUAR NEGERI ONLY
-        if(FOREIGN_ONLY_BLACKLIST.some(k => t.includes(k))) continue;
-        // 3. HARUS ADA UNSUR POLITIK INDONESIA (SUDAH DIPERLEBAR)
-        if(!POLITIK_MUST_V2.some(k => t.includes(k))) continue;
+        if(FOREIGN_BLACKLIST.some(k => t.includes(k))) continue;
+        // GAK ADA CEK WAJIB POLITIK INDONESIA LAGI
       }
 
       if(topicId==='megawati'){
