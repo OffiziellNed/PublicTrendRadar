@@ -12,6 +12,10 @@ import { NextResponse } from 'next/server';
 const MAX_PER_TOPIC = 100;     // maksimal berita per topik (sebelumnya 25)
 const FETCH_TIMEOUT_MS = 8000; // batas waktu tiap request ke Google News
 const CACHE_SECONDS = 300;     // data di-refresh tiap 5 menit
+// Google News sering telat 1-3 jam memasukkan berita ke RSS.
+// Jadi query ke Google pakai jendela lebih lebar, lalu disaring lagi berdasarkan jam terbit.
+const QUERY_EXTRA_HOURS = 3;   // "3 Jam" -> minta ke Google when:6h
+const GRACE_MINUTES = 60;      // toleransi jam terbit (3 Jam = berita terbit <= 4 jam lalu)
 
 const TOPIC_QUERIES = {
   jakarta: ['Pemprov DKI Jakarta OR Gubernur DKI'],
@@ -236,7 +240,7 @@ function clusterHeadlines(headlines, topicId, threshold = 0.38) {
 
 // ---------- Fetch ----------
 async function fetchSingleQuery(q, hours) {
-  const fullQ = `${q} when:${hours}h`;
+  const fullQ = `${q} when:${hours + QUERY_EXTRA_HOURS}h`;
   const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(fullQ)}&hl=id&gl=ID&ceid=ID:id`;
   try {
     const res = await fetch(rssUrl, {
@@ -259,10 +263,11 @@ async function fetchTopic(topicId, hours) {
   const failed = results.filter(r => !r.ok);
   const allRaw = results.flatMap(r => r.items);
 
-  const maxMinutes = hours * 60;
+  const maxMinutes = hours * 60 + GRACE_MINUTES;
   const matcher = TOPIC_MATCHERS[topicId];
   const seen = new Set();
   const items = [];
+  const debug = { mentah: allRaw.length, lewatWaktu: 0, duplikat: 0, gagalKeyword: 0, blacklist: 0 };
 
   for (let i = 0; i < allRaw.length; i++) {
     const { titleFull, linkRaw, pubDateStr, source, domain } = allRaw[i];
@@ -270,22 +275,21 @@ async function fetchTopic(topicId, hours) {
     const pubDate = new Date(pubDateStr);
     if (isNaN(pubDate.getTime())) continue;
     const minutesAgo = Math.max(0, Math.floor((Date.now() - pubDate.getTime()) / 60000));
-    if (minutesAgo > maxMinutes) continue; // filter waktu KETAT
+    if (minutesAgo > maxMinutes) { debug.lewatWaktu++; continue; }
 
     const cleanTitle = (titleFull.split(' - ')[0] || titleFull).trim();
     if (!cleanTitle) continue;
 
     const t = cleanTitle.toLowerCase();
-    if (seen.has(t)) continue;
+    if (seen.has(t)) { debug.duplikat++; continue; }
     seen.add(t);
 
-    if (matcher && !matcher.test(t)) continue;
+    if (matcher && !matcher.test(t)) { debug.gagalKeyword++; continue; }
 
     if (topicId === 'kritik_publik') {
-      if (SPORT_MATCHER.test(t)) continue;
-      if (FOREIGN_MATCHER.test(t)) continue;
+      if (SPORT_MATCHER.test(t) || FOREIGN_MATCHER.test(t)) { debug.blacklist++; continue; }
     }
-    if (topicId === 'megawati' && MEGAWATI_ATLET_MATCHER.test(t)) continue;
+    if (topicId === 'megawati' && MEGAWATI_ATLET_MATCHER.test(t)) { debug.blacklist++; continue; }
 
     const url = linkRaw.replace(/&amp;/g, '&');
     items.push({
@@ -307,6 +311,7 @@ async function fetchTopic(topicId, hours) {
     totalQueries: queries.length,
     failedQueries: failed.length,
     failReasons: [...new Set(failed.map(f => f.reason))],
+    debug,
   };
 }
 
@@ -315,13 +320,14 @@ export async function GET(req) {
   try {
     const { searchParams } = new URL(req.url);
     const filterRaw = searchParams.get('filter') || '3 Jam';
+    const showDebug = searchParams.get('debug') === '1';
 
     let hours = 3;
     if (filterRaw.includes('24')) hours = 24;
     else if (filterRaw.includes('6')) hours = 6;
 
     const topics = await Promise.all(TOPIC_ORDER.map(async (id) => {
-      const { items, totalQueries, failedQueries, failReasons } = await fetchTopic(id, hours);
+      const { items, totalQueries, failedQueries, failReasons, debug } = await fetchTopic(id, hours);
       const clusters = clusterHeadlines(items, id);
       return {
         id,
@@ -334,6 +340,7 @@ export async function GET(req) {
         error: failedQueries === totalQueries,          // semua query gagal
         partialError: failedQueries > 0 && failedQueries < totalQueries,
         failReasons,
+        ...(showDebug ? { debug } : {}),
       };
     }));
 
