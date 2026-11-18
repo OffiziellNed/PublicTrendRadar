@@ -113,7 +113,7 @@ const TOPIC_META = {
   keluarga_jokowi: { title: 'Keluarga Jokowi', icon: '👨‍👩‍👧‍👦' },
   sosial: { title: 'Sosial & Viral', icon: '💬' },
   kriminal: { title: 'Kriminal', icon: '🦹' },
-  korupsi_kpk: { title: 'Korupsi & KPK', icon: '💰' },
+  korupsi_kpk: { title: 'Berita Korupsi', icon: '💰' },
 };
 
 const TOPIC_ORDER = ['jakarta','nasional','bencana','pdip','megawati','puan','kritik_publik','dedi_mulyadi','keluarga_jokowi','sosial','kriminal','korupsi_kpk'];
