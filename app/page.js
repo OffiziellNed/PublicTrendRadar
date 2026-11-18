@@ -180,7 +180,7 @@ function EditorLink({ url, judul, size = 36, radius = 8, bg = '#0d1117', fontSiz
     return <button type="button" title="Buka di editor Agora Vada" aria-label="Buka di editor Agora Vada" onClick={() => alert('Isi NEXT_PUBLIC_EDITOR_URL di Vercel (project Radar) dulu, lalu Redeploy.')} style={style}>A</button>;
   }
   const href = `${EDITOR_URL}/?url=${encodeURIComponent(url)}&judul=${encodeURIComponent(judul || '')}`;
-  return <a href={href} target="_blank" rel="noopener noreferrer" title="Buka di editor Agora Vada" aria-label="Buka di editor Agora Vada" style={style}>A</a>;
+  return <a href={href} title="Buka di editor Agora Vada" aria-label="Buka di editor Agora Vada" style={style}>A</a>;
 }
 
 function Badge({ bg, color, border, children, title }) {
