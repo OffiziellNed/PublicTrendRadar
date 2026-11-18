@@ -19,7 +19,16 @@ const GRACE_MINUTES = 60;      // toleransi jam terbit (3 Jam = berita terbit <=
 
 const TOPIC_QUERIES = {
   jakarta: ['Pemprov DKI Jakarta OR Gubernur DKI'],
-  nasional: ['berita nasional Indonesia'],
+  nasional: [
+    // Feed resmi rubrik "Indonesia/Nasional" di Google News (berita utama nasional)
+    'FEED:https://news.google.com/rss/headlines/section/topic/NATION?hl=id&gl=ID&ceid=ID:id',
+    'Presiden Prabowo OR Istana OR Mensesneg OR Wapres OR Kabinet Merah Putih',
+    'menteri OR kementerian OR reshuffle OR kebijakan pemerintah OR peraturan pemerintah',
+    'DPR RI OR Komisi DPR OR RUU OR rapat paripurna OR Baleg OR MPR',
+    'TNI OR Polri OR Kapolri OR Panglima TNI OR Mahkamah Konstitusi OR Mahkamah Agung OR KPU OR Bawaslu',
+    'APBN OR subsidi OR harga BBM OR harga beras OR bansos OR Danantara OR makan bergizi gratis OR pajak',
+    'partai politik OR Gerindra OR Golkar OR PKB OR NasDem OR PKS OR PAN OR Demokrat OR pemilu OR pilkada'
+  ],
   bencana: ['bencana alam OR gempa bumi OR banjir'],
   pdip: ['PDI Perjuangan OR PDIP'],
   megawati: ['Megawati Soekarnoputri OR Ketua Umum PDIP'],
@@ -71,7 +80,7 @@ const TOPIC_QUERIES = {
 // (contoh: 'bunuh' tidak lagi otomatis menangkap 'pembunuhan').
 const TOPIC_FILTERS = {
   jakarta: ['jakarta','dki'],
-  nasional: ['nasional','indonesia','ri'],
+  nasional: [], // kosong = tidak disaring keyword (query & feed sudah spesifik nasional)
   bencana: ['bencana','gempa','banjir','longsor','tanah longsor','erupsi','banjir bandang','puting beliung','kebakaran hutan','karhutla','tsunami'],
   pdip: ['pdip','pdi perjuangan','pdi-p'],
   megawati: ['megawati','mega soekarnoputri','ketua umum pdip','bu mega'],
@@ -240,8 +249,10 @@ function clusterHeadlines(headlines, topicId, threshold = 0.38) {
 
 // ---------- Fetch ----------
 async function fetchSingleQuery(q, hours) {
-  const fullQ = `${q} when:${hours + QUERY_EXTRA_HOURS}h`;
-  const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(fullQ)}&hl=id&gl=ID&ceid=ID:id`;
+  // 'FEED:<url>' = ambil feed RSS apa adanya (disaring jam terbit di fetchTopic)
+  const rssUrl = q.startsWith('FEED:')
+    ? q.slice(5)
+    : `https://news.google.com/rss/search?q=${encodeURIComponent(`${q} when:${hours + QUERY_EXTRA_HOURS}h`)}&hl=id&gl=ID&ceid=ID:id`;
   try {
     const res = await fetch(rssUrl, {
       headers: { 'User-Agent': 'Mozilla/5.0' },
