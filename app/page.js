@@ -114,6 +114,7 @@ function clusterHeadlines(headlines, threshold = 0.38) {
       sources: [...new Set(cluster.map(c => c.source))],
       headlines: cluster,
       source: main.source,
+      domain: main.domain,
     };
   });
 }
@@ -174,12 +175,12 @@ const FILTERS = {
 // Alamat editor Agora Vada. ENV NEXT_PUBLIC_EDITOR_URL (kalau diisi) akan menimpa alamat ini.
 const EDITOR_URL = (process.env.NEXT_PUBLIC_EDITOR_URL || 'https://agora-vada-javascript-theta.vercel.app').replace(/\/+$/, '');
 
-function EditorLink({ url, judul, size = 36, radius = 8, bg = '#0d1117', fontSize = 16 }) {
+function EditorLink({ url, judul, domain, size = 36, radius = 8, bg = '#0d1117', fontSize = 16 }) {
   const style = { width: size, height: size, backgroundColor: bg, border: '1px solid #30363d', borderRadius: radius, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', fontSize, fontWeight: 800, color: '#f0883e', cursor: 'pointer', flexShrink: 0, padding: 0 };
   if (!EDITOR_URL || !url) {
     return <button type="button" title="Buka di editor Agora Vada" aria-label="Buka di editor Agora Vada" onClick={() => alert('Isi NEXT_PUBLIC_EDITOR_URL di Vercel (project Radar) dulu, lalu Redeploy.')} style={style}>A</button>;
   }
-  const href = `${EDITOR_URL}/?url=${encodeURIComponent(url)}&judul=${encodeURIComponent(judul || '')}`;
+  const href = `${EDITOR_URL}/?url=${encodeURIComponent(url)}&judul=${encodeURIComponent(judul || '')}&sumber=${encodeURIComponent(domain || '')}`;
   return <a href={href} title="Buka di editor Agora Vada" aria-label="Buka di editor Agora Vada" style={style}>A</a>;
 }
 
@@ -253,6 +254,7 @@ export default function Page() {
         mainUrl: c.quoteHeadline.url,
         time: c.quoteHeadline.time,
         source: c.quoteHeadline.source,
+        domain: c.quoteHeadline.domain,
       }));
     }
 
@@ -272,6 +274,7 @@ export default function Page() {
       time: h.time,
       minutesAgo: h.minutesAgo,
       source: h.source,
+      domain: h.domain,
       headlines: [h],
     })));
   }, [selectedTopic, activeFilter, groupSimilar]);
@@ -423,7 +426,7 @@ export default function Page() {
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
                           <a href={cluster.mainUrl} target="_blank" rel="noopener noreferrer" aria-label="Buka berita" style={{ width: '36px', height: '36px', backgroundColor: '#0d1117', border: '1px solid #30363d', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', fontSize: '16px', cursor: 'pointer' }}>🔗</a>
-                          <EditorLink url={cluster.mainUrl} judul={cluster.title} />
+                          <EditorLink url={cluster.mainUrl} judul={cluster.title} domain={cluster.domain} />
                           {cluster.isCluster && (
                             <button onClick={() => setExpandedClusters(prev => ({ ...prev, [cluster.id]: !prev[cluster.id] }))} aria-expanded={!!isExpanded} style={{ minWidth: '36px', height: '22px', backgroundColor: isExpanded ? '#21262d' : '#0d1117', border: '1px solid #30363d', borderRadius: '20px', color: isExpanded ? '#58a6ff' : '#8b949e', fontSize: '11px', fontWeight: '700', cursor: 'pointer', padding: '0 8px' }}>{isExpanded ? '−' : `${cluster.count}`}</button>
                           )}
@@ -440,7 +443,7 @@ export default function Page() {
                               </div>
                               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
                                 <a href={h.url} target="_blank" rel="noopener noreferrer" aria-label="Buka berita" style={{ width: '30px', height: '30px', backgroundColor: '#161b22', border: '1px solid #30363d', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', fontSize: '12px', flexShrink: 0 }}>🔗</a>
-                                <EditorLink url={h.url} judul={h.title} size={30} radius={6} bg="#161b22" fontSize={13} />
+                                <EditorLink url={h.url} judul={h.title} domain={h.domain} size={30} radius={6} bg="#161b22" fontSize={13} />
                               </div>
                             </div>
                           ))}
