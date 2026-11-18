@@ -171,8 +171,8 @@ const FILTERS = {
 };
 
 // ---------- Tombol "A": buka editor Agora Vada & otomatis tarik berita ----------
-// Isi ENV NEXT_PUBLIC_EDITOR_URL di Vercel (project Radar), contoh: https://agoravada.vercel.app
-const EDITOR_URL = (process.env.NEXT_PUBLIC_EDITOR_URL || '').replace(/\/+$/, '');
+// Alamat editor Agora Vada. ENV NEXT_PUBLIC_EDITOR_URL (kalau diisi) akan menimpa alamat ini.
+const EDITOR_URL = (process.env.NEXT_PUBLIC_EDITOR_URL || 'https://agora-vada-javascript-theta.vercel.app').replace(/\/+$/, '');
 
 function EditorLink({ url, judul, size = 36, radius = 8, bg = '#0d1117', fontSize = 16 }) {
   const style = { width: size, height: size, backgroundColor: bg, border: '1px solid #30363d', borderRadius: radius, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', fontSize, fontWeight: 800, color: '#f0883e', cursor: 'pointer', flexShrink: 0, padding: 0 };
