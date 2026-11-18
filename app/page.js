@@ -6,6 +6,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 // 🔥 Hot News     : isu yang SUDAH ramai diliput media
 // ⚡ Potensi Hot  : isu baru (≤ 2 jam) yang mulai diliput beberapa media
 // ❤️ Positif      : isu dengan nada positif (tanpa kata negatif)
+// 💬 Kutipan      : isu yang memuat pernyataan/omongan tokoh
 // Semua dinilai per ISU (cluster), bukan per judul.
 // ============================================================
 
@@ -30,6 +31,12 @@ const BOOSTER_KEYWORDS = [
   'rp','miliar','triliun','viral','video','rekaman','detik-detik','live','blak-blakan','ngaku','mengaku','terungkap','ini faktanya','kocak','parah','menangis','geger','ramai','heboh','bikin geram','geram','murka'
 ];
 
+// Kata kerja yang biasanya menandai pernyataan tokoh di judul berita
+const QUOTE_VERBS = [
+  'kata','katanya','sebut','menyebut','ujar','klaim','mengklaim','akui','mengakui','ngaku','mengaku','bilang','janji','berjanji','sesumbar',
+  'dalih','berdalih','tegaskan','menegaskan','singgung','menyinggung','jawab','menjawab','tanggapi','menanggapi','respons','sentil','menyentil','curhat','blak-blakan','buka suara'
+];
+
 function escapeRegex(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 function buildMatcher(keywords) {
   const parts = [...new Set(keywords.map(k => k.trim().toLowerCase()).filter(Boolean))]
@@ -40,6 +47,28 @@ function buildMatcher(keywords) {
 const NEG_MATCHER = buildMatcher(NEGATIVE_KEYWORDS);
 const POS_MATCHER = buildMatcher(POSITIVE_KEYWORDS);
 const BOOST_MATCHER = buildMatcher(BOOSTER_KEYWORDS);
+const QUOTE_VERB_MATCHER = buildMatcher(QUOTE_VERBS);
+
+// Label rubrik media yang memakai titik dua tapi BUKAN kutipan ("VIDEO: ...", "Update: ...")
+const QUOTE_LABEL_PREFIX = /^(update|video|foto|breaking|breaking news|live|live update|infografis|opini|terkini|berita terkini|cek fakta|hoaks|viral|jadwal|link|daftar|kronologi|fakta|simak|klarifikasi|eksklusif|analisis|editorial)\b/;
+
+// Judul dianggap kutipan kalau:
+// 1) ada tanda kutip ganda ("...", “...”), atau
+// 2) ada kutip tunggal yang membungkus ≥ 2 kata ('...'), atau
+// 3) pola "Tokoh: isi omongan" (bagian sebelum titik dua maksimal 4 kata), atau
+// 4) ada kata kerja pernyataan (kata, sebut, klaim, akui, ...)
+function isQuoteTitle(title) {
+  if (!title) return false;
+  if (/["“”]/.test(title)) return true;
+  if (/['‘’][^'‘’]+\s[^'‘’]+['‘’]/.test(title)) return true;
+  const colon = title.indexOf(':');
+  if (colon > 0 && colon < title.length - 5 && !/\d/.test(title[colon + 1] || '')) {
+    const beforeText = title.slice(0, colon).trim();
+    const before = beforeText.split(/\s+/);
+    if (before.length <= 4 && !QUOTE_LABEL_PREFIX.test(beforeText.toLowerCase())) return true;
+  }
+  return QUOTE_VERB_MATCHER.test(title.toLowerCase());
+}
 
 // ---------- Clustering ----------
 const STOPWORDS = new Set(['dan','di','yang','untuk','dari','dengan','pada','ke','ini','itu','adalah','akan','bisa','jadi','soal','tentang','dalam','secara','oleh','sebagai','saat','tengah','juga','sudah','telah','buka','ada','jika','atau','para','sebuah','tersebut','agar','hingga','bahwa','karena','kepada','namun','tetapi']);
@@ -113,9 +142,11 @@ function classifyIsu(cluster) {
   if (sourceCount >= HOT_MIN_SOURCES || sources60 >= HOT_MIN_SOURCES_60M) kategori = 'hot';
   else if (firstSeen <= POTENSI_MAX_AGE_MIN && sourceCount >= POTENSI_MIN_SOURCES && (negCount > 0 || boostCount > 0)) kategori = 'potensi';
 
+  const quoteHeadline = hs.find(h => isQuoteTitle(h.title)) || null;
+
   const heat = sourceCount * 2 + sources60 * 3 + (boostCount > 0 ? 1 : 0) + (negCount > 0 ? 1 : 0);
 
-  return { kategori, sentiment, sourceCount, sources60, firstSeen, heat };
+  return { kategori, sentiment, sourceCount, sources60, firstSeen, heat, isKutipan: !!quoteHeadline, quoteHeadline };
 }
 
 function analyzeTopic(topic) {
@@ -127,6 +158,7 @@ function analyzeTopic(topic) {
       hot: clusters.filter(c => c.kategori === 'hot').length,
       potensi: clusters.filter(c => c.kategori === 'potensi').length,
       positif: clusters.filter(c => c.sentiment === 'positif').length,
+      kutipan: clusters.filter(c => c.isKutipan).length,
     },
   };
 }
@@ -135,6 +167,7 @@ const FILTERS = {
   hot: { icon: '🔥', label: 'Hot News', color: '#ff4500', border: '#ff6a33', desc: `Diliput ≥ ${HOT_MIN_SOURCES} media berbeda, atau ≥ ${HOT_MIN_SOURCES_60M} media dalam 1 jam terakhir` },
   potensi: { icon: '⚡', label: 'Potensi Hot', color: '#facc15', border: '#fde047', desc: `Muncul ≤ ${POTENSI_MAX_AGE_MIN / 60} jam lalu, sudah ≥ ${POTENSI_MIN_SOURCES} media, judul bernada negatif/clickbait` },
   positif: { icon: '❤️', label: 'Positif', color: '#e11d48', border: '#fb7185', desc: 'Ada kata positif dan tidak ada kata negatif di semua judul isu ini' },
+  kutipan: { icon: '💬', label: 'Kutipan', color: '#a78bfa', border: '#c4b5fd', desc: 'Isu yang memuat pernyataan tokoh: tanda kutip, pola "Tokoh: ...", atau kata seperti kata, sebut, klaim, akui' },
 };
 
 function Badge({ bg, color, border, children, title }) {
@@ -149,6 +182,7 @@ function IsuBadges({ c }) {
       {c.kategori === 'hot' && <Badge bg="rgba(255,69,0,0.15)" color="#ff8a5c" border="#ff4500">🔥 Hot</Badge>}
       {c.kategori === 'potensi' && <Badge bg="rgba(250,204,21,0.12)" color="#fde047" border="#a68a0a">⚡ Potensi</Badge>}
       {c.sentiment === 'positif' && <Badge bg="rgba(225,29,72,0.12)" color="#fb7185" border="#9f1239">❤️ Positif</Badge>}
+      {c.isKutipan && <Badge bg="rgba(167,139,250,0.12)" color="#c4b5fd" border="#5b21b6">💬 Kutipan</Badge>}
       {c.sentiment === 'negatif' && <Badge bg="#161b22" color="#f87171" border="#30363d">Negatif</Badge>}
       {c.sentiment === 'campur' && <Badge bg="#161b22" color="#c9d1d9" border="#30363d">Campur</Badge>}
       <Badge bg="#0d1117" color="#8b949e" border="#30363d" title="Jumlah media berbeda yang meliput isu ini">{c.sourceCount} media{c.sources60 > 0 ? ` • ${c.sources60} dalam 1 jam` : ''}</Badge>
@@ -198,12 +232,24 @@ export default function Page() {
     if (activeFilter === 'hot') list = list.filter(c => c.kategori === 'hot');
     if (activeFilter === 'potensi') list = list.filter(c => c.kategori === 'potensi');
     if (activeFilter === 'positif') list = list.filter(c => c.sentiment === 'positif');
+    if (activeFilter === 'kutipan') {
+      // Tampilkan judul yang berisi kutipan sebagai judul utama isu
+      list = list.filter(c => c.isKutipan).map(c => ({
+        ...c,
+        title: c.quoteHeadline.title,
+        mainUrl: c.quoteHeadline.url,
+        time: c.quoteHeadline.time,
+        source: c.quoteHeadline.source,
+      }));
+    }
 
     list = [...list].sort((a, b) => (activeFilter === 'hot' || activeFilter === 'potensi') ? (b.heat - a.heat) || (a.minutesAgo - b.minutesAgo) : a.minutesAgo - b.minutesAgo);
 
     if (groupSimilar) return list;
     // Mode tanpa grup: tampilkan per judul, tapi label tetap mengikuti isunya
-    return list.flatMap(c => c.headlines.map(h => ({
+    return list.flatMap(c => c.headlines
+      .filter(h => activeFilter !== 'kutipan' || isQuoteTitle(h.title))
+      .map(h => ({
       ...c,
       id: `single-${h.id}`,
       isCluster: false,
@@ -293,6 +339,7 @@ export default function Page() {
                     <span title={FILTERS.hot.desc} style={{ color: topic.counts.hot ? '#ff8a5c' : '#484f58' }}>🔥 {topic.counts.hot}</span>
                     <span title={FILTERS.potensi.desc} style={{ color: topic.counts.potensi ? '#fde047' : '#484f58' }}>⚡ {topic.counts.potensi}</span>
                     <span title={FILTERS.positif.desc} style={{ color: topic.counts.positif ? '#fb7185' : '#484f58' }}>❤️ {topic.counts.positif}</span>
+                    <span title={FILTERS.kutipan.desc} style={{ color: topic.counts.kutipan ? '#c4b5fd' : '#484f58' }}>💬 {topic.counts.kutipan}</span>
                   </div>
                 )}
 
@@ -328,6 +375,7 @@ export default function Page() {
                   {filterButton('hot')}
                   {filterButton('potensi')}
                   {filterButton('positif')}
+                  {filterButton('kutipan')}
                   <button onClick={() => setShowDetail(false)} aria-label="Tutup" style={{ width: '36px', height: '36px', backgroundColor: '#161b22', border: '1px solid #30363d', borderRadius: '10px', color: '#8b949e', fontSize: '18px', cursor: 'pointer', marginLeft: '2px' }}>×</button>
                 </div>
               </div>
