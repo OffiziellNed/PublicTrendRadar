@@ -176,7 +176,11 @@ function parseRSS(xml) {
       const m = itemXml.match(r);
       return m ? decodeEntities(m[1].trim().replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')) : '';
     };
-    items.push({ titleFull: getTag('title'), linkRaw: getTag('link'), pubDateStr: getTag('pubDate'), source: getTag('source') });
+    // <source url="https://www.kompas.com">Kompas.com</source> -> domain media asli
+    const sourceUrl = (itemXml.match(/<source[^>]*\burl="([^"]+)"/i) || [])[1] || '';
+    let domain = '';
+    try { domain = new URL(sourceUrl).hostname.replace(/^www\./, ''); } catch {}
+    items.push({ titleFull: getTag('title'), linkRaw: getTag('link'), pubDateStr: getTag('pubDate'), source: getTag('source'), domain });
   }
   return items;
 }
@@ -261,7 +265,7 @@ async function fetchTopic(topicId, hours) {
   const items = [];
 
   for (let i = 0; i < allRaw.length; i++) {
-    const { titleFull, linkRaw, pubDateStr, source } = allRaw[i];
+    const { titleFull, linkRaw, pubDateStr, source, domain } = allRaw[i];
 
     const pubDate = new Date(pubDateStr);
     if (isNaN(pubDate.getTime())) continue;
@@ -287,6 +291,7 @@ async function fetchTopic(topicId, hours) {
     items.push({
       id: `${topicId}-${i}`,
       source: (source || 'Google News').slice(0, 30),
+      domain,
       time: formatTimeAgo(minutesAgo),
       minutesAgo,
       title: cleanTitle,
