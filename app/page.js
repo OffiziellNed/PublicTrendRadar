@@ -1,6 +1,5 @@
 "use client";
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { RefreshCw, LayoutGrid, Flame, ExternalLink, Share2, ChevronDown, ChevronUp, ChevronLeft, WifiOff } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
 
 // ============================================================
 // PUBLIC TREND RADAR - page.js (versi klasifikasi per isu)
@@ -171,250 +170,35 @@ const FILTERS = {
   kutipan: { icon: '💬', label: 'Kutipan', color: '#a78bfa', border: '#c4b5fd', desc: 'Isu yang memuat pernyataan tokoh: tanda kutip, pola "Tokoh: ...", atau kata seperti kata, sebut, klaim, akui' },
 };
 
-const FILTER_ORDER = ['hot', 'potensi', 'positif', 'kutipan'];
-
-// ---------- Editor Agora Vada ----------
+// ---------- Tombol "A": buka editor Agora Vada & otomatis tarik berita ----------
 // Isi ENV NEXT_PUBLIC_EDITOR_URL di Vercel (project Radar), contoh: https://agoravada.vercel.app
 const EDITOR_URL = (process.env.NEXT_PUBLIC_EDITOR_URL || '').replace(/\/+$/, '');
-function editorLink(url, judul) {
-  if (!EDITOR_URL || !url) return null;
-  return `${EDITOR_URL}/?url=${encodeURIComponent(url)}&judul=${encodeURIComponent(judul || '')}`;
+
+function EditorLink({ url, judul, size = 36, radius = 8, bg = '#0d1117', fontSize = 16 }) {
+  const style = { width: size, height: size, backgroundColor: bg, border: '1px solid #30363d', borderRadius: radius, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', fontSize, fontWeight: 800, color: '#f0883e', cursor: 'pointer', flexShrink: 0, padding: 0 };
+  if (!EDITOR_URL || !url) {
+    return <button type="button" title="Buka di editor Agora Vada" aria-label="Buka di editor Agora Vada" onClick={() => alert('Isi NEXT_PUBLIC_EDITOR_URL di Vercel (project Radar) dulu, lalu Redeploy.')} style={style}>A</button>;
+  }
+  const href = `${EDITOR_URL}/?url=${encodeURIComponent(url)}&judul=${encodeURIComponent(judul || '')}`;
+  return <a href={href} target="_blank" rel="noopener noreferrer" title="Buka di editor Agora Vada" aria-label="Buka di editor Agora Vada" style={style}>A</a>;
 }
 
-function EditorIcon({ size = 18 }) {
+function Badge({ bg, color, border, children, title }) {
   return (
-    <span aria-hidden="true" style={{ width: size, height: size, borderRadius: 5, background: '#f0883e', color: '#000', fontWeight: 800, fontSize: Math.round(size * 0.68), display: 'inline-flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1, flexShrink: 0 }}>A</span>
+    <span title={title} style={{ fontSize: '10px', fontWeight: '700', padding: '2px 8px', borderRadius: '20px', backgroundColor: bg, color, border: `1px solid ${border}`, whiteSpace: 'nowrap' }}>{children}</span>
   );
 }
-
-// Tombol "A": buka editor & otomatis tarik berita
-function EditorButton({ url, judul, onMissing, compact }) {
-  const href = editorLink(url, judul);
-  const label = compact ? null : <span>Editor</span>;
-  if (!href) {
-    return <button onClick={onMissing} aria-label="Buka di editor Agora Vada"><EditorIcon size={compact ? 22 : 18} />{label}</button>;
-  }
-  return <a href={href} target="_blank" rel="noopener noreferrer" aria-label="Buka di editor Agora Vada"><EditorIcon size={compact ? 22 : 18} />{label}</a>;
-}
-const AUTO_REFRESH_MS = 5 * 60 * 1000; // refresh otomatis tiap 5 menit saat aplikasi dibuka
-
-// ---------- Filter & urutan (dipakai di detail topik dan tab Paling Panas) ----------
-function applyFilter(list, filter) {
-  let out = list;
-  if (filter === 'hot') out = out.filter(c => c.kategori === 'hot');
-  if (filter === 'potensi') out = out.filter(c => c.kategori === 'potensi');
-  if (filter === 'positif') out = out.filter(c => c.sentiment === 'positif');
-  if (filter === 'kutipan') {
-    out = out.filter(c => c.isKutipan).map(c => ({
-      ...c,
-      title: c.quoteHeadline.title,
-      mainUrl: c.quoteHeadline.url,
-      time: c.quoteHeadline.time,
-      source: c.quoteHeadline.source,
-    }));
-  }
-  return out;
-}
-function sortClusters(list, filter, byHeat) {
-  const heatFirst = byHeat || filter === 'hot' || filter === 'potensi';
-  return [...list].sort((a, b) => heatFirst ? (b.heat - a.heat) || (a.minutesAgo - b.minutesAgo) : a.minutesAgo - b.minutesAgo);
-}
-
-// ---------- Gaya ----------
-const CSS = `
-@import url("https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500&display=swap");
-:root {
-  --bg: #0a0a0f; --surface: #12161d; --surface-2: #0d1117; --line: #252b35; --line-soft: #1b2028;
-  --text: #e6edf3; --muted: #8b949e; --faint: #4b535d; --blue: #58a6ff; --green: #22c55e; --red: #f87171;
-  --safe-top: env(safe-area-inset-top, 0px); --safe-bottom: env(safe-area-inset-bottom, 0px);
-}
-html, body { background: var(--bg) !important; color: var(--text); margin: 0; padding: 0; overscroll-behavior-y: auto; -webkit-tap-highlight-color: transparent; }
-* { box-sizing: border-box; font-family: 'Geist', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
-.mono { font-family: 'Geist Mono', ui-monospace, Menlo, monospace; }
-button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
-button:focus-visible, a:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
-@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
-
-.app { min-height: 100dvh; background: var(--bg); padding-bottom: calc(76px + var(--safe-bottom)); }
-
-/* Top bar */
-.topbar { position: sticky; top: 0; z-index: 20; background: rgba(10,10,15,0.94); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid var(--line-soft); padding: calc(10px + var(--safe-top)) 16px 12px; }
-.topbar-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; max-width: 1120px; margin: 0 auto; }
-.brand { font-size: 20px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.1; }
-.sync { font-size: 11px; color: var(--muted); margin-top: 3px; display: flex; align-items: center; gap: 6px; }
-.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
-.dot.err { background: var(--red); } .dot.wait { background: #eab308; }
-.icon-btn { width: 44px; height: 44px; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; background: var(--surface); border: 1px solid var(--line); color: var(--text); flex-shrink: 0; }
-.spin { animation: spin 0.9s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
-
-.seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 4px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; max-width: 1120px; margin: 12px auto 0; }
-.seg button { height: 36px; border-radius: 9px; font-size: 13px; font-weight: 700; color: var(--muted); }
-.seg button[aria-pressed="true"] { background: var(--text); color: #000; }
-
-.main { max-width: 1120px; margin: 0 auto; padding: 14px 16px 24px; }
-.banner { padding: 12px 14px; border-radius: 12px; border: 1px solid #7f1d1d; background: rgba(127,29,29,0.22); color: #fca5a5; font-size: 13px; margin-bottom: 12px; display: flex; gap: 8px; align-items: center; }
-
-/* Ringkasan */
-.summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 16px; }
-.stat { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 10px 6px; text-align: center; min-height: 64px; }
-.stat-num { font-size: 20px; font-weight: 800; line-height: 1.1; margin-top: 2px; }
-.stat-label { font-size: 10.5px; color: var(--muted); margin-top: 2px; }
-
-.section-title { font-size: 13px; font-weight: 700; color: var(--muted); margin: 0 2px 10px; }
-
-/* Kartu topik */
-.topics { display: grid; grid-template-columns: 1fr; gap: 10px; }
-@media (min-width: 720px) { .topics { grid-template-columns: repeat(2, 1fr); } }
-@media (min-width: 1040px) { .topics { grid-template-columns: repeat(3, 1fr); } }
-.topic { width: 100%; text-align: left; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
-.topic:active { background: #161b24; }
-.topic[disabled] { opacity: 0.55; cursor: default; }
-.topic.err { border-color: #7f1d1d; }
-.topic-head { display: flex; gap: 12px; align-items: center; }
-.topic-icon { width: 44px; height: 44px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--line); display: flex; align-items: center; justify-content: center; font-size: 21px; flex-shrink: 0; }
-.topic-name { font-weight: 700; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.topic-meta { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
-.topic-counts { display: flex; gap: 12px; font-size: 12px; }
-.topic-counts .off { color: var(--faint); }
-.topic-preview { font-size: 13px; color: #c9d1d9; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-
-/* Chips filter */
-.chips { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding: 2px 16px 2px; margin: 0 -16px; }
-.chips::-webkit-scrollbar { display: none; }
-.chip { flex-shrink: 0; height: 36px; padding: 0 14px; border-radius: 18px; background: var(--surface); border: 1px solid var(--line); font-size: 13px; font-weight: 600; color: #c9d1d9; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
-.chip .n { font-size: 11px; color: var(--muted); font-weight: 700; }
-.chip[aria-pressed="true"] { color: #000; }
-.chip[aria-pressed="true"] .n { color: rgba(0,0,0,0.65); }
-.filter-desc { font-size: 12px; color: var(--muted); margin-top: 8px; line-height: 1.45; }
-
-/* Kartu isu */
-.list { display: flex; flex-direction: column; gap: 10px; }
-.isu { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
-.isu.hot { border-color: #7c2d12; }
-.isu-body { padding: 14px 14px 10px; }
-.isu-meta { font-size: 11.5px; color: var(--muted); display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
-.isu-topic { color: #c9d1d9; font-weight: 600; }
-.isu-title { font-size: 15px; font-weight: 650; line-height: 1.42; margin-top: 6px; }
-.badges { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
-.badge { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 20px; border: 1px solid var(--line); white-space: nowrap; }
-.actions { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--line-soft); }
-.actions > * { height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; font-size: 12px; font-weight: 600; color: #c9d1d9; text-decoration: none; white-space: nowrap; }
-.actions > * + * { border-left: 1px solid var(--line-soft); }
-.actions .disabled { color: var(--faint); }
-.sources { border-top: 1px solid var(--line-soft); background: var(--surface-2); }
-.source-row { display: flex; gap: 6px; align-items: center; padding: 6px 8px 6px 14px; border-bottom: 1px solid var(--line-soft); }
-.source-link { flex: 1; min-width: 0; display: flex; gap: 10px; align-items: center; padding: 4px 0; text-decoration: none; color: inherit; }
-.source-row .mini { width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.source-row .mini > a, .source-row .mini > button { width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; }
-.source-row:last-child { border-bottom: 0; }
-.source-title { font-size: 13px; color: #c9d1d9; margin-top: 2px; line-height: 1.4; }
-.empty { padding: 28px 16px; text-align: center; color: var(--muted); font-size: 13px; border: 1px dashed var(--line); border-radius: 16px; background: var(--surface); line-height: 1.5; }
-
-/* Sheet detail */
-.sheet { position: fixed; inset: 0; z-index: 40; background: var(--bg); display: flex; flex-direction: column; }
-@media (min-width: 760px) { .sheet { background: rgba(10,10,15,0.9); align-items: center; padding: 24px; } .sheet-inner { max-width: 720px; border: 1px solid var(--line); border-radius: 18px; } }
-.sheet-inner { width: 100%; height: 100%; display: flex; flex-direction: column; background: var(--bg); overflow: hidden; }
-.sheet-head { padding: calc(10px + var(--safe-top)) 16px 12px; border-bottom: 1px solid var(--line-soft); }
-.sheet-title { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.sheet-title .t { font-size: 17px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sheet-sub { font-size: 11.5px; color: var(--muted); }
-.toggle { margin-top: 10px; height: 32px; padding: 0 12px; border-radius: 16px; font-size: 12px; font-weight: 600; border: 1px solid var(--line); color: var(--muted); background: var(--surface); }
-.toggle[aria-pressed="true"] { border-color: var(--blue); color: var(--blue); background: rgba(88,166,255,0.12); }
-.sheet-body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 14px 16px calc(24px + var(--safe-bottom)); }
-
-/* Navigasi bawah */
-.bottomnav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; background: rgba(13,17,23,0.96); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-top: 1px solid var(--line-soft); padding-bottom: var(--safe-bottom); display: grid; grid-template-columns: 1fr 1fr; }
-.bottomnav button { height: 60px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 11px; font-weight: 600; color: var(--muted); }
-.bottomnav button[aria-current="page"] { color: var(--text); }
-.bottomnav .pill { width: 52px; height: 28px; border-radius: 14px; display: flex; align-items: center; justify-content: center; }
-.bottomnav button[aria-current="page"] .pill { background: #1f2630; }
-
-.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(84px + var(--safe-bottom)); z-index: 60; background: var(--text); color: #000; font-size: 13px; font-weight: 600; padding: 10px 16px; border-radius: 12px; }
-`;
-
-const BADGE_STYLE = {
-  hot: { background: 'rgba(255,69,0,0.15)', color: '#ff8a5c', borderColor: '#9a3412' },
-  potensi: { background: 'rgba(250,204,21,0.12)', color: '#fde047', borderColor: '#854d0e' },
-  positif: { background: 'rgba(225,29,72,0.12)', color: '#fb7185', borderColor: '#9f1239' },
-  kutipan: { background: 'rgba(167,139,250,0.12)', color: '#c4b5fd', borderColor: '#5b21b6' },
-  negatif: { background: 'transparent', color: '#f87171' },
-  campur: { background: 'transparent', color: '#c9d1d9' },
-  info: { background: 'transparent', color: '#8b949e' },
-};
 
 function IsuBadges({ c }) {
   return (
-    <div className="badges">
-      {c.kategori === 'hot' && <span className="badge" style={BADGE_STYLE.hot}>🔥 Hot</span>}
-      {c.kategori === 'potensi' && <span className="badge" style={BADGE_STYLE.potensi}>⚡ Potensi</span>}
-      {c.sentiment === 'positif' && <span className="badge" style={BADGE_STYLE.positif}>❤️ Positif</span>}
-      {c.isKutipan && <span className="badge" style={BADGE_STYLE.kutipan}>💬 Kutipan</span>}
-      {c.sentiment === 'negatif' && <span className="badge" style={BADGE_STYLE.negatif}>Negatif</span>}
-      {c.sentiment === 'campur' && <span className="badge" style={BADGE_STYLE.campur}>Campur</span>}
-      <span className="badge" style={BADGE_STYLE.info}>{c.sourceCount} media{c.sources60 > 0 ? ` • ${c.sources60} dalam 1 jam` : ''}</span>
-    </div>
-  );
-}
-
-function IsuCard({ c, expanded, onToggle, onShare, showTopic, onEditorMissing }) {
-  return (
-    <article className={`isu${c.kategori === 'hot' ? ' hot' : ''}`}>
-      <div className="isu-body">
-        <div className="isu-meta mono">
-          {showTopic && <span className="isu-topic">{c.topicIcon} {c.topicTitle}</span>}
-          <span>{c.source}</span><span>•</span><span>{c.time}</span>
-        </div>
-        <div className="isu-title">{c.title}</div>
-        <IsuBadges c={c} />
-      </div>
-      <div className="actions">
-        <a href={c.mainUrl} target="_blank" rel="noopener noreferrer"><ExternalLink size={16} /> Buka</a>
-        <EditorButton url={c.mainUrl} judul={c.title} onMissing={onEditorMissing} />
-        <button onClick={() => onShare(c)}><Share2 size={16} /> Bagikan</button>
-        {c.isCluster
-          ? <button onClick={onToggle} aria-expanded={!!expanded}>{expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />} {c.count}</button>
-          : <span className="disabled">1 berita</span>}
-      </div>
-      {c.isCluster && expanded && (
-        <div className="sources">
-          {c.headlines.map(h => (
-            <div key={h.id} className="source-row">
-              <a className="source-link" href={h.url} target="_blank" rel="noopener noreferrer">
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div className="mono" style={{ fontSize: '11px', color: 'var(--muted)' }}>{h.source} • {h.time}</div>
-                  <div className="source-title">{h.title}</div>
-                </div>
-                <ExternalLink size={15} color="var(--muted)" />
-              </a>
-              <span className="mini"><EditorButton url={h.url} judul={h.title} onMissing={onEditorMissing} compact /></span>
-            </div>
-          ))}
-        </div>
-      )}
-    </article>
-  );
-}
-
-function FilterChips({ active, onChange, counts, allLabel }) {
-  return (
-    <div className="chips" role="toolbar" aria-label="Filter isu">
-      {allLabel && (
-        <button className="chip" aria-pressed={!active} onClick={() => onChange(null)} style={!active ? { background: 'var(--text)', borderColor: 'var(--text)' } : undefined}>
-          {allLabel}
-        </button>
-      )}
-      {FILTER_ORDER.map(key => {
-        const f = FILTERS[key];
-        const on = active === key;
-        return (
-          <button key={key} className="chip" aria-pressed={on} title={f.desc}
-            onClick={() => onChange(on && !allLabel ? null : key)}
-            style={on ? { background: f.color, borderColor: f.border } : undefined}>
-            <span>{f.icon}</span><span>{f.label}</span><span className="n">{counts?.[key] ?? 0}</span>
-          </button>
-        );
-      })}
+    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '8px' }}>
+      {c.kategori === 'hot' && <Badge bg="rgba(255,69,0,0.15)" color="#ff8a5c" border="#ff4500">🔥 Hot</Badge>}
+      {c.kategori === 'potensi' && <Badge bg="rgba(250,204,21,0.12)" color="#fde047" border="#a68a0a">⚡ Potensi</Badge>}
+      {c.sentiment === 'positif' && <Badge bg="rgba(225,29,72,0.12)" color="#fb7185" border="#9f1239">❤️ Positif</Badge>}
+      {c.isKutipan && <Badge bg="rgba(167,139,250,0.12)" color="#c4b5fd" border="#5b21b6">💬 Kutipan</Badge>}
+      {c.sentiment === 'negatif' && <Badge bg="#161b22" color="#f87171" border="#30363d">Negatif</Badge>}
+      {c.sentiment === 'campur' && <Badge bg="#161b22" color="#c9d1d9" border="#30363d">Campur</Badge>}
+      <Badge bg="#0d1117" color="#8b949e" border="#30363d" title="Jumlah media berbeda yang meliput isu ini">{c.sourceCount} media{c.sources60 > 0 ? ` • ${c.sources60} dalam 1 jam` : ''}</Badge>
     </div>
   );
 }
@@ -424,287 +208,252 @@ export default function Page() {
   const [trendTopics, setTrendTopics] = useState([]);
   const [trendLoading, setTrendLoading] = useState(false);
   const [fetchError, setFetchError] = useState(false);
-  const [offline, setOffline] = useState(false);
-  const [lastSync, setLastSync] = useState(null);
-  const [tab, setTab] = useState('topik');
-  const [feedFilter, setFeedFilter] = useState('hot');
   const [selectedTopicId, setSelectedTopicId] = useState(null);
   const [showDetail, setShowDetail] = useState(false);
   const [activeFilter, setActiveFilter] = useState(null);
   const [groupSimilar, setGroupSimilar] = useState(true);
   const [expandedClusters, setExpandedClusters] = useState({});
-  const [toast, setToast] = useState('');
-  const lastFetchRef = useRef(0);
 
-  // ---------- Ambil data ----------
-  const fetchRadar = useCallback(async () => {
-    setTrendLoading(true);
-    try {
-      const res = await fetch(`/api/trend-radar?filter=${encodeURIComponent(trendTimeFilter)}`);
-      const data = await res.json();
-      if (data?.topics) {
-        setTrendTopics(data.topics);
-        setFetchError(false);
-        setLastSync(data.lastSync ? new Date(data.lastSync) : new Date());
-      } else setFetchError(true);
-    } catch { setFetchError(true); }
-    finally {
-      setTrendLoading(false);
-      lastFetchRef.current = Date.now();
-      setOffline(typeof navigator !== 'undefined' && !navigator.onLine);
-    }
+  useEffect(() => {
+    const fetchRadar = async () => {
+      setTrendLoading(true);
+      try {
+        const res = await fetch(`/api/trend-radar?filter=${encodeURIComponent(trendTimeFilter)}`);
+        const data = await res.json();
+        if (data?.topics) { setTrendTopics(data.topics); setFetchError(false); }
+        else setFetchError(true);
+      } catch { setFetchError(true); }
+      finally { setTrendLoading(false); }
+    };
+    fetchRadar();
   }, [trendTimeFilter]);
 
-  useEffect(() => { fetchRadar(); }, [fetchRadar]);
-
-  // Refresh otomatis + saat aplikasi dibuka lagi dari background
   useEffect(() => {
-    const tick = () => { if (document.visibilityState === 'visible' && Date.now() - lastFetchRef.current > AUTO_REFRESH_MS) fetchRadar(); };
-    const id = setInterval(tick, 60 * 1000);
-    document.addEventListener('visibilitychange', tick);
-    const onOnline = () => { setOffline(false); fetchRadar(); };
-    const onOffline = () => setOffline(true);
-    window.addEventListener('online', onOnline);
-    window.addEventListener('offline', onOffline);
-    return () => {
-      clearInterval(id);
-      document.removeEventListener('visibilitychange', tick);
-      window.removeEventListener('online', onOnline);
-      window.removeEventListener('offline', onOffline);
-    };
-  }, [fetchRadar]);
-
-  // Service worker (dibutuhkan supaya bisa di-install sebagai aplikasi)
-  useEffect(() => {
-    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
-  }, []);
-
-  // ---------- Tombol "kembali" Android menutup detail, bukan keluar aplikasi ----------
-  useEffect(() => {
-    const onPop = () => setShowDetail(false);
-    window.addEventListener('popstate', onPop);
-    return () => window.removeEventListener('popstate', onPop);
-  }, []);
-
-  const openDetail = (id) => {
-    setSelectedTopicId(id);
-    setActiveFilter(null);
-    setExpandedClusters({});
-    setShowDetail(true);
-    window.history.pushState({ sheet: true }, '');
-  };
-  const closeDetail = () => {
-    if (window.history.state?.sheet) window.history.back();
-    else setShowDetail(false);
-  };
-
-  useEffect(() => {
-    document.body.style.overflow = showDetail ? 'hidden' : '';
-    return () => { document.body.style.overflow = ''; };
+    if (showDetail) document.body.style.overflow = 'hidden';
+    else { document.body.style.overflow = 'auto'; setActiveFilter(null); }
+    return () => { document.body.style.overflow = 'auto'; };
   }, [showDetail]);
 
-  useEffect(() => {
-    if (!toast) return;
-    const id = setTimeout(() => setToast(''), 2200);
-    return () => clearTimeout(id);
-  }, [toast]);
+  useEffect(() => { setActiveFilter(null); setExpandedClusters({}); }, [selectedTopicId]);
 
-  // ---------- Olah data ----------
   const analyzedTopics = useMemo(() => trendTopics.map(analyzeTopic), [trendTopics]);
   const selectedTopic = useMemo(() => analyzedTopics.find(t => t.id === selectedTopicId) || null, [analyzedTopics, selectedTopicId]);
 
-  const totals = useMemo(() => {
-    const t = { hot: 0, potensi: 0, positif: 0, kutipan: 0 };
-    analyzedTopics.forEach(tp => FILTER_ORDER.forEach(k => { t[k] += tp.counts[k]; }));
-    return t;
-  }, [analyzedTopics]);
-
-  // Semua isu dari semua topik, digabung kalau isunya sama
-  const allIsu = useMemo(() => {
-    const map = new Map();
-    analyzedTopics.forEach(tp => tp.analyzed.forEach(c => {
-      const key = c.title.toLowerCase();
-      const item = { ...c, topicTitle: tp.title, topicIcon: tp.icon };
-      const prev = map.get(key);
-      if (!prev || item.heat > prev.heat) map.set(key, item);
-    }));
-    return [...map.values()];
-  }, [analyzedTopics]);
-
-  const feedCounts = useMemo(() => ({
-    hot: allIsu.filter(c => c.kategori === 'hot').length,
-    potensi: allIsu.filter(c => c.kategori === 'potensi').length,
-    positif: allIsu.filter(c => c.sentiment === 'positif').length,
-    kutipan: allIsu.filter(c => c.isKutipan).length,
-  }), [allIsu]);
-
-  const feedList = useMemo(() => sortClusters(applyFilter(allIsu, feedFilter), feedFilter, true).slice(0, 60), [allIsu, feedFilter]);
-
-  const detailList = useMemo(() => {
+  const displayClusters = useMemo(() => {
     if (!selectedTopic) return [];
-    const list = sortClusters(applyFilter(selectedTopic.analyzed, activeFilter), activeFilter, false);
+    let list = selectedTopic.analyzed;
+    if (activeFilter === 'hot') list = list.filter(c => c.kategori === 'hot');
+    if (activeFilter === 'potensi') list = list.filter(c => c.kategori === 'potensi');
+    if (activeFilter === 'positif') list = list.filter(c => c.sentiment === 'positif');
+    if (activeFilter === 'kutipan') {
+      // Tampilkan judul yang berisi kutipan sebagai judul utama isu
+      list = list.filter(c => c.isKutipan).map(c => ({
+        ...c,
+        title: c.quoteHeadline.title,
+        mainUrl: c.quoteHeadline.url,
+        time: c.quoteHeadline.time,
+        source: c.quoteHeadline.source,
+      }));
+    }
+
+    list = [...list].sort((a, b) => (activeFilter === 'hot' || activeFilter === 'potensi') ? (b.heat - a.heat) || (a.minutesAgo - b.minutesAgo) : a.minutesAgo - b.minutesAgo);
+
     if (groupSimilar) return list;
+    // Mode tanpa grup: tampilkan per judul, tapi label tetap mengikuti isunya
     return list.flatMap(c => c.headlines
       .filter(h => activeFilter !== 'kutipan' || isQuoteTitle(h.title))
-      .map(h => ({ ...c, id: `single-${h.id}`, isCluster: false, count: 1, title: h.title, mainUrl: h.url, time: h.time, minutesAgo: h.minutesAgo, source: h.source, headlines: [h] })));
+      .map(h => ({
+      ...c,
+      id: `single-${h.id}`,
+      isCluster: false,
+      count: 1,
+      title: h.title,
+      mainUrl: h.url,
+      time: h.time,
+      minutesAgo: h.minutesAgo,
+      source: h.source,
+      headlines: [h],
+    })));
   }, [selectedTopic, activeFilter, groupSimilar]);
 
-  const editorMissing = () => setToast('Isi NEXT_PUBLIC_EDITOR_URL di Vercel dulu');
-  const toggleExpand = (id) => setExpandedClusters(prev => ({ ...prev, [id]: !prev[id] }));
-
-  const shareIsu = async (c) => {
-    const text = `${c.title}\n${c.source} • ${c.time}`;
-    try {
-      if (navigator.share) { await navigator.share({ title: c.title, text, url: c.mainUrl }); return; }
-      await navigator.clipboard.writeText(`${text}\n${c.mainUrl}`);
-      setToast('Disalin ke clipboard');
-    } catch (e) {
-      if (e?.name !== 'AbortError') setToast('Gagal membagikan');
-    }
+  const filterButton = (key) => {
+    const f = FILTERS[key];
+    const active = activeFilter === key;
+    const count = selectedTopic?.counts?.[key] ?? 0;
+    return (
+      <button
+        key={key}
+        onClick={() => setActiveFilter(active ? null : key)}
+        title={`${f.label}: ${f.desc}`}
+        aria-pressed={active}
+        style={{ height: '36px', padding: '0 10px', backgroundColor: active ? f.color : '#161b22', border: active ? `1px solid ${f.border}` : '1px solid #30363d', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '16px', cursor: 'pointer', color: active ? '#000' : '#c9d1d9' }}
+      >
+        <span>{f.icon}</span><span style={{ fontSize: '11px', fontWeight: '700' }}>{count}</span>
+      </button>
+    );
   };
 
-  const syncLabel = trendLoading ? 'Memperbarui…'
-    : offline ? 'Offline • data terakhir'
-    : fetchError ? 'Gagal sync'
-    : lastSync ? `Diperbarui ${lastSync.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`
-    : 'Memuat…';
-  const dotClass = trendLoading ? 'dot wait' : (fetchError || offline) ? 'dot err' : 'dot';
-
   return (
-    <div className="app">
-      <style>{CSS}</style>
+    <div style={{ width: '100%', minHeight: '100dvh', backgroundColor: '#0a0a0f', color: '#fff' }}>
+      <style>{`
+        @import url("https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500&display=swap");
+        html, body { background-color: #0a0a0f !important; margin:0; padding:0; width: 100%; height: auto; min-height: 100%; overflow-x: hidden; overflow-y: auto; -webkit-overflow-scrolling: touch; touch-action: pan-y; scrollbar-width: thin; scrollbar-color: #30363d #0a0a0f; }
+        * { font-family: 'Geist', system-ui, -apple-system, 'Segoe UI', sans-serif; box-sizing: border-box; }
+        .mono{font-family:'Geist Mono', ui-monospace, Menlo, monospace}
+        button:focus-visible, a:focus-visible { outline: 2px solid #58a6ff; outline-offset: 2px; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; } ::-webkit-scrollbar-track { background: #0a0a0f; } ::-webkit-scrollbar-thumb { background: #30363d; border-radius: 4px; }
+      `}</style>
 
-      <header className="topbar">
-        <div className="topbar-row">
-          <div style={{ minWidth: 0 }}>
-            <div className="brand">Trend Radar</div>
-            <div className="sync mono"><span className={dotClass} />{syncLabel}</div>
+      <div style={{ width: '100%', maxWidth: '1120px', margin: '0 auto', padding: '20px 16px 80px 16px', backgroundColor: '#0a0a0f', minHeight: '100dvh' }}>
+        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+          <h2 style={{ fontSize: '32px', fontWeight: '800' }}>Public Trend Radar</h2>
+          <p style={{ color: '#8b949e', fontSize: '14px', marginTop: '6px' }}>Monitoring isu publik terupdate - REAL TIME.</p>
+          <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            {['3 Jam', '6 Jam', '24 Jam'].map(f => (
+              <button key={f} onClick={() => setTrendTimeFilter(f)} style={{ padding: '7px 16px', borderRadius: '20px', fontSize: '12px', fontWeight: '700', border: '1px solid #30363d', backgroundColor: trendTimeFilter === f ? '#fff' : '#161b22', color: trendTimeFilter === f ? '#000' : '#c9d1d9', cursor: 'pointer' }}>{f}</button>
+            ))}
+            <div style={{ padding: '6px 14px', borderRadius: '20px', fontSize: '11px', backgroundColor: '#161b22', border: '1px solid #30363d', color: fetchError ? '#f87171' : '#22c55e' }} className="mono">
+              ● {trendLoading ? 'sync...' : fetchError ? 'Gagal sync' : 'LIVE ON'}
+            </div>
           </div>
-          <button className="icon-btn" onClick={fetchRadar} disabled={trendLoading} aria-label="Perbarui data">
-            <RefreshCw size={19} className={trendLoading ? 'spin' : ''} />
-          </button>
+          <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'center', gap: '14px', flexWrap: 'wrap', fontSize: '11px', color: '#8b949e' }}>
+            {Object.values(FILTERS).map(f => <span key={f.label} title={f.desc}>{f.icon} {f.label}</span>)}
+          </div>
         </div>
-        <div className="seg" role="group" aria-label="Rentang waktu">
-          {['3 Jam', '6 Jam', '24 Jam'].map(f => (
-            <button key={f} aria-pressed={trendTimeFilter === f} onClick={() => setTrendTimeFilter(f)}>{f}</button>
-          ))}
-        </div>
-      </header>
 
-      <main className="main">
-        {offline && (
-          <div className="banner"><WifiOff size={16} /> Tidak ada koneksi. Yang tampil adalah data terakhir yang tersimpan.</div>
-        )}
-        {fetchError && !offline && !trendLoading && (
-          <div className="banner">Data radar tidak bisa diambil. Tekan tombol perbarui di kanan atas untuk mencoba lagi.</div>
+        {fetchError && !trendLoading && (
+          <div style={{ marginBottom: '16px', padding: '12px 16px', borderRadius: '12px', border: '1px solid #7f1d1d', backgroundColor: 'rgba(127,29,29,0.2)', color: '#fca5a5', fontSize: '13px', textAlign: 'center' }}>
+            Data radar tidak bisa diambil. Coba ganti filter waktu atau muat ulang halaman.
+          </div>
         )}
 
-        {tab === 'topik' && (
-          <>
-            <div className="summary">
-              {FILTER_ORDER.map(k => (
-                <button key={k} className="stat" title={FILTERS[k].desc} onClick={() => { setFeedFilter(k); setTab('panas'); window.scrollTo(0, 0); }}>
-                  <div style={{ fontSize: '16px' }}>{FILTERS[k].icon}</div>
-                  <div className="stat-num" style={{ color: totals[k] ? 'var(--text)' : 'var(--faint)' }}>{totals[k]}</div>
-                  <div className="stat-label">{FILTERS[k].label}</div>
-                </button>
-              ))}
-            </div>
-
-            <div className="section-title">Topik • {trendTimeFilter} terakhir</div>
-            <div className="topics">
-              {analyzedTopics.length === 0 && trendLoading && <div className="empty">Mengambil berita terbaru…</div>}
-              {analyzedTopics.map(topic => {
-                const total = topic.headlines?.length || 0;
-                const isEmpty = total === 0;
-                const isError = !!topic.error;
-                const top = [...topic.analyzed].sort((a, b) => b.heat - a.heat)[0];
-                return (
-                  <button key={topic.id} className={`topic${isError ? ' err' : ''}`} disabled={isEmpty} onClick={() => openDetail(topic.id)}>
-                    <div className="topic-head">
-                      <div className="topic-icon">{topic.icon}</div>
-                      <div style={{ minWidth: 0, flex: 1 }}>
-                        <div className="topic-name">{topic.title}</div>
-                        <div className="topic-meta mono" style={isError ? { color: 'var(--red)' } : undefined}>
-                          {isError ? 'Gagal ambil data' : isEmpty ? `Belum ada berita dalam ${trendTimeFilter}` : `${total} berita • ${topic.analyzed.length} isu`}
-                          {topic.partialError && !isError ? ' • sebagian gagal' : ''}
-                        </div>
-                      </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px', paddingBottom: '40px', alignItems: 'stretch' }}>
+          {analyzedTopics.map(topic => {
+            const totalBerita = topic.headlines?.length || 0;
+            const isuCount = topic.analyzed.length;
+            const isEmpty = totalBerita === 0;
+            const isError = !!topic.error;
+            const preview = [...topic.analyzed].sort((a, b) => b.heat - a.heat).slice(0, 2);
+            return (
+              <div key={topic.id} style={{ backgroundColor: '#161b22', border: isError ? '1px solid #7f1d1d' : isEmpty ? '1px dashed #30363d' : '1px solid #30363d', borderRadius: '16px', padding: '18px', display: 'flex', flexDirection: 'column', minHeight: '240px', opacity: isEmpty && !isError ? 0.6 : 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+                  <div style={{ width: '48px', height: '48px', backgroundColor: '#0d1117', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', border: '1px solid #30363d', flexShrink: 0 }}>{topic.icon}</div>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontWeight: '700', fontSize: '15px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{topic.title}</div>
+                    <div className="mono" style={{ fontSize: '11px', color: isError ? '#f87171' : isEmpty ? '#484f58' : '#8b949e' }}>
+                      {isError ? 'Gagal ambil data' : isEmpty ? `0 berita dalam ${trendTimeFilter}` : `${totalBerita} berita • ${isuCount} isu`}
+                      {topic.partialError && !isError ? ' • sebagian gagal' : ''}
                     </div>
-                    {!isEmpty && (
-                      <>
-                        <div className="topic-counts mono">
-                          {FILTER_ORDER.map(k => (
-                            <span key={k} className={topic.counts[k] ? '' : 'off'}>{FILTERS[k].icon} {topic.counts[k]}</span>
-                          ))}
-                        </div>
-                        {top && <div className="topic-preview">{top.kategori === 'hot' ? '🔥 ' : top.kategori === 'potensi' ? '⚡ ' : ''}{top.title}</div>}
-                      </>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </>
-        )}
-
-        {tab === 'panas' && (
-          <>
-            <FilterChips active={feedFilter} onChange={setFeedFilter} counts={feedCounts} allLabel="Semua" />
-            <div className="filter-desc">
-              {feedFilter ? FILTERS[feedFilter].desc : 'Semua isu dari semua topik, diurutkan dari yang paling ramai.'}
-            </div>
-            <div className="list" style={{ marginTop: '14px' }}>
-              {feedList.map(c => (
-                <IsuCard key={c.id} c={c} showTopic expanded={expandedClusters[c.id]} onToggle={() => toggleExpand(c.id)} onShare={shareIsu} onEditorMissing={editorMissing} />
-              ))}
-              {feedList.length === 0 && (
-                <div className="empty">
-                  {feedFilter ? `Belum ada isu ${FILTERS[feedFilter].label} dalam ${trendTimeFilter}.` : `Belum ada isu dalam ${trendTimeFilter}.`}
-                  <br />Coba rentang waktu yang lebih panjang.
+                  </div>
                 </div>
-              )}
-            </div>
-          </>
-        )}
-      </main>
 
-      <nav className="bottomnav" aria-label="Navigasi utama">
-        <button aria-current={tab === 'topik' ? 'page' : undefined} onClick={() => { setTab('topik'); window.scrollTo(0, 0); }}>
-          <span className="pill"><LayoutGrid size={20} /></span>Topik
-        </button>
-        <button aria-current={tab === 'panas' ? 'page' : undefined} onClick={() => { setTab('panas'); window.scrollTo(0, 0); }}>
-          <span className="pill"><Flame size={20} /></span>Paling Panas
-        </button>
-      </nav>
+                {!isEmpty && (
+                  <div style={{ display: 'flex', gap: '8px', marginBottom: '10px', fontSize: '12px' }} className="mono">
+                    <span title={FILTERS.hot.desc} style={{ color: topic.counts.hot ? '#ff8a5c' : '#484f58' }}>🔥 {topic.counts.hot}</span>
+                    <span title={FILTERS.potensi.desc} style={{ color: topic.counts.potensi ? '#fde047' : '#484f58' }}>⚡ {topic.counts.potensi}</span>
+                    <span title={FILTERS.positif.desc} style={{ color: topic.counts.positif ? '#fb7185' : '#484f58' }}>❤️ {topic.counts.positif}</span>
+                    <span title={FILTERS.kutipan.desc} style={{ color: topic.counts.kutipan ? '#c4b5fd' : '#484f58' }}>💬 {topic.counts.kutipan}</span>
+                  </div>
+                )}
+
+                <div style={{ marginBottom: '14px', flex: 1, minHeight: '44px', display: 'flex', flexDirection: 'column', justifyContent: 'flex-start' }}>
+                  {!isEmpty && preview.map(c => (
+                    <div key={c.id} style={{ fontSize: '12px', color: '#8b949e', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: '4px' }}>
+                      {c.kategori === 'hot' ? '🔥' : c.kategori === 'potensi' ? '⚡' : '•'} {c.title}
+                    </div>
+                  ))}
+                  {isEmpty && !isError && <div style={{ fontSize: '12px', color: '#484f58', fontStyle: 'italic' }}>Tidak ada berita dalam {trendTimeFilter}</div>}
+                  {isError && <div style={{ fontSize: '12px', color: '#f87171' }}>Google News tidak merespons untuk topik ini. Coba lagi beberapa menit lagi.</div>}
+                </div>
+
+                <button onClick={() => { if (!isEmpty) { setSelectedTopicId(topic.id); setShowDetail(true); } }} disabled={isEmpty} style={{ width: '100%', backgroundColor: isEmpty ? '#21262d' : '#fff', color: isEmpty ? '#484f58' : '#000', padding: '10px', borderRadius: '10px', fontWeight: '700', fontSize: '12px', border: 'none', cursor: isEmpty ? 'not-allowed' : 'pointer', marginTop: 'auto' }}>
+                  {isError ? 'Gagal sync' : isEmpty ? 'Kosong' : 'Cek Sekarang'}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
 
       {showDetail && selectedTopic && (
-        <div className="sheet" role="dialog" aria-modal="true" aria-label={selectedTopic.title}>
-          <div className="sheet-inner">
-            <div className="sheet-head">
-              <div className="sheet-title">
-                <button className="icon-btn" onClick={closeDetail} aria-label="Kembali"><ChevronLeft size={20} /></button>
-                <div style={{ minWidth: 0 }}>
-                  <div className="t">{selectedTopic.icon} {selectedTopic.title}</div>
-                  <div className="sheet-sub mono">{selectedTopic.headlines.length} berita • {selectedTopic.analyzed.length} isu • {trendTimeFilter}</div>
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(10,10,15,0.92)', zIndex: 50, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', padding: '12px', overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
+          <div style={{ width: '100%', maxWidth: '720px', backgroundColor: '#0d1117', border: '1px solid #30363d', borderRadius: '16px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', marginTop: '10px' }}>
+            <div style={{ padding: '14px 16px', borderBottom: '1px solid #30363d', backgroundColor: '#0d1117', flexShrink: 0 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', minWidth: 0, flex: 1 }}>
+                  <button onClick={() => setShowDetail(false)} aria-label="Kembali" style={{ backgroundColor: '#21262d', border: '1px solid #30363d', color: '#fff', padding: '6px 10px', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', flexShrink: 0 }}>←</button>
+                  <div style={{ fontWeight: '800', fontSize: '15px', display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}><span>{selectedTopic.icon}</span><span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{selectedTopic.title}</span></div>
+                </div>
+                <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexShrink: 0 }}>
+                  {filterButton('hot')}
+                  {filterButton('potensi')}
+                  {filterButton('positif')}
+                  {filterButton('kutipan')}
+                  <button onClick={() => setShowDetail(false)} aria-label="Tutup" style={{ width: '36px', height: '36px', backgroundColor: '#161b22', border: '1px solid #30363d', borderRadius: '10px', color: '#8b949e', fontSize: '18px', cursor: 'pointer', marginLeft: '2px' }}>×</button>
                 </div>
               </div>
-              <div style={{ marginTop: '12px' }}>
-                <FilterChips active={activeFilter} onChange={setActiveFilter} counts={selectedTopic.counts} />
+
+              <div style={{ marginTop: '12px', display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <button onClick={() => setGroupSimilar(!groupSimilar)} className="mono" style={{ fontSize: '11px', padding: '5px 12px', borderRadius: '20px', border: groupSimilar ? '1px solid #58a6ff' : '1px solid #30363d', backgroundColor: groupSimilar ? 'rgba(88,166,255,0.15)' : '#161b22', color: groupSimilar ? '#58a6ff' : '#8b949e', cursor: 'pointer' }}>
+                  {groupSimilar ? `✓ Grup mirip ON • ${displayClusters.length} isu` : `Grup mirip OFF • ${displayClusters.length} judul`}
+                </button>
+                {activeFilter && (
+                  <>
+                    <div className="mono" style={{ fontSize: '11px', color: '#8b949e', backgroundColor: '#161b22', border: '1px solid #30363d', padding: '4px 10px', borderRadius: '20px' }}>{FILTERS[activeFilter].icon} {FILTERS[activeFilter].label}</div>
+                    <button onClick={() => setActiveFilter(null)} style={{ fontSize: '11px', backgroundColor: '#21262d', border: '1px solid #30363d', color: '#c9d1d9', padding: '4px 10px', borderRadius: '20px', cursor: 'pointer' }}>Reset ✕</button>
+                  </>
+                )}
               </div>
-              {activeFilter && <div className="filter-desc">{FILTERS[activeFilter].desc}</div>}
-              <button className="toggle" aria-pressed={groupSimilar} onClick={() => setGroupSimilar(!groupSimilar)}>
-                {groupSimilar ? `✓ Gabung berita mirip • ${detailList.length} isu` : `Per judul • ${detailList.length} berita`}
-              </button>
+              {activeFilter && (
+                <div style={{ marginTop: '8px', fontSize: '11px', color: '#8b949e' }}>{FILTERS[activeFilter].desc}</div>
+              )}
             </div>
-            <div className="sheet-body">
-              <div className="list">
-                {detailList.map(c => (
-                  <IsuCard key={c.id} c={c} expanded={expandedClusters[c.id]} onToggle={() => toggleExpand(c.id)} onShare={shareIsu} onEditorMissing={editorMissing} />
-                ))}
-                {detailList.length === 0 && (
-                  <div className="empty">
-                    {activeFilter ? `Belum ada isu ${FILTERS[activeFilter].label} di topik ini dalam ${trendTimeFilter}.` : `Tidak ada berita dalam ${trendTimeFilter}.`}
+
+            <div style={{ padding: '14px', flex: 1, overflowY: 'auto', backgroundColor: '#0d1117', WebkitOverflowScrolling: 'touch' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {displayClusters.map(cluster => {
+                  const isExpanded = expandedClusters[cluster.id];
+                  return (
+                    <div key={cluster.id} style={{ borderRadius: '12px', backgroundColor: '#161b22', border: cluster.kategori === 'hot' ? '1px solid #7c2d12' : '1px solid #30363d', overflow: 'hidden' }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', padding: '14px' }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div className="mono" style={{ fontSize: '11px', color: '#8b949e' }}>{cluster.source} • {cluster.time}</div>
+                          <div style={{ fontSize: '13px', fontWeight: '600', marginTop: '4px', lineHeight: '1.4' }}>{cluster.title}</div>
+                          <IsuBadges c={cluster} />
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                          <a href={cluster.mainUrl} target="_blank" rel="noopener noreferrer" aria-label="Buka berita" style={{ width: '36px', height: '36px', backgroundColor: '#0d1117', border: '1px solid #30363d', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', fontSize: '16px', cursor: 'pointer' }}>🔗</a>
+                          <EditorLink url={cluster.mainUrl} judul={cluster.title} />
+                          {cluster.isCluster && (
+                            <button onClick={() => setExpandedClusters(prev => ({ ...prev, [cluster.id]: !prev[cluster.id] }))} aria-expanded={!!isExpanded} style={{ minWidth: '36px', height: '22px', backgroundColor: isExpanded ? '#21262d' : '#0d1117', border: '1px solid #30363d', borderRadius: '20px', color: isExpanded ? '#58a6ff' : '#8b949e', fontSize: '11px', fontWeight: '700', cursor: 'pointer', padding: '0 8px' }}>{isExpanded ? '−' : `${cluster.count}`}</button>
+                          )}
+                        </div>
+                      </div>
+                      {cluster.isCluster && isExpanded && (
+                        <div style={{ borderTop: '1px solid #21262d', backgroundColor: '#0d1117', padding: '8px' }}>
+                          <div className="mono" style={{ fontSize: '10px', color: '#484f58', padding: '4px 8px 8px' }}>{cluster.count} berita dari {cluster.sourceCount} media untuk isu ini:</div>
+                          {cluster.headlines.map(h => (
+                            <div key={h.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 8px', borderBottom: '1px solid #161b22' }}>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div className="mono" style={{ fontSize: '10px', color: '#8b949e' }}>{h.source} • {h.time}</div>
+                                <div style={{ fontSize: '12px', color: '#c9d1d9', marginTop: '2px' }}>{h.title}</div>
+                              </div>
+                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                                <a href={h.url} target="_blank" rel="noopener noreferrer" aria-label="Buka berita" style={{ width: '30px', height: '30px', backgroundColor: '#161b22', border: '1px solid #30363d', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', fontSize: '12px', flexShrink: 0 }}>🔗</a>
+                                <EditorLink url={h.url} judul={h.title} size={30} radius={6} bg="#161b22" fontSize={13} />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+                {displayClusters.length === 0 && (
+                  <div style={{ padding: '30px', textAlign: 'center', color: '#8b949e', fontSize: '13px', backgroundColor: '#161b22', border: '1px dashed #30363d', borderRadius: '12px' }}>
+                    {activeFilter
+                      ? `Belum ada isu ${FILTERS[activeFilter].label} dalam ${trendTimeFilter}. Coba filter waktu yang lebih panjang.`
+                      : `Tidak ada berita dalam ${trendTimeFilter}.`}
                   </div>
                 )}
               </div>
@@ -712,8 +461,6 @@ export default function Page() {
           </div>
         </div>
       )}
-
-      {toast && <div className="toast" role="status">{toast}</div>}
     </div>
   );
 }
