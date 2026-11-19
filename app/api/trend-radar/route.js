@@ -1,5 +1,10 @@
 import { NextResponse } from 'next/server';
 
+// Jalankan function di Singapura (lebih dekat ke Indonesia) dan beri waktu cukup
+export const preferredRegion = 'sin1';
+export const maxDuration = 30;
+export const dynamic = 'force-dynamic';
+
 // ============================================================
 // PUBLIC TREND RADAR - trend-radar/route.js (versi perbaikan)
 // - Limit per topik bisa diatur (MAX_PER_TOPIC)
@@ -16,6 +21,8 @@ const CACHE_SECONDS = 300;     // data di-refresh tiap 5 menit
 // Jadi query ke Google pakai jendela lebih lebar, lalu disaring lagi berdasarkan jam terbit.
 const QUERY_EXTRA_HOURS = 3;   // "3 Jam" -> minta ke Google when:6h
 const GRACE_MINUTES = 60;      // toleransi jam terbit (3 Jam = berita terbit <= 4 jam lalu)
+const MAX_PARALLEL = 6;        // maksimal request ke Google sekaligus (biar tidak dianggap spam)
+const BROWSER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
 const TOPIC_QUERIES = {
   jakarta: ['Pemprov DKI Jakarta OR Gubernur DKI'],
@@ -248,23 +255,72 @@ function clusterHeadlines(headlines, topicId, threshold = 0.38) {
 }
 
 // ---------- Fetch ----------
-async function fetchSingleQuery(q, hours) {
-  // 'FEED:<url>' = ambil feed RSS apa adanya (disaring jam terbit di fetchTopic)
-  const rssUrl = q.startsWith('FEED:')
-    ? q.slice(5)
-    : `https://news.google.com/rss/search?q=${encodeURIComponent(`${q} when:${hours + QUERY_EXTRA_HOURS}h`)}&hl=id&gl=ID&ceid=ID:id`;
-  try {
-    const res = await fetch(rssUrl, {
-      headers: { 'User-Agent': 'Mozilla/5.0' },
-      next: { revalidate: CACHE_SECONDS },
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-    });
-    if (!res.ok) return { ok: false, reason: `HTTP ${res.status}`, items: [] };
-    const xml = await res.text();
-    return { ok: true, items: parseRSS(xml) };
-  } catch (e) {
-    return { ok: false, reason: e?.name === 'TimeoutError' ? 'timeout' : String(e?.message || e), items: [] };
+// ---------- Antrian: batasi jumlah request bersamaan ----------
+let active = 0;
+const waiting = [];
+async function limited(fn) {
+  if (active >= MAX_PARALLEL) await new Promise(r => waiting.push(r));
+  active++;
+  try { return await fn(); }
+  finally { active--; const next = waiting.shift(); if (next) next(); }
+}
+
+async function getRss(url) {
+  const res = await fetch(url, {
+    headers: { 'User-Agent': BROWSER_UA, 'Accept': 'application/rss+xml, application/xml;q=0.9, */*;q=0.8', 'Accept-Language': 'id-ID,id;q=0.9,en;q=0.8' },
+    cache: 'no-store', // jangan simpan jawaban Google di cache Next (termasuk jawaban "diblokir")
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+  });
+  const text = await res.text();
+  if (!res.ok) return { ok: false, reason: `HTTP ${res.status}`, items: [] };
+  // Google kadang membalas 200 tapi isinya halaman blokir/consent (HTML), bukan RSS
+  if (!/<rss[\s>]|<channel[\s>]/i.test(text)) {
+    return { ok: false, reason: 'bukan RSS (kemungkinan diblokir): ' + text.slice(0, 120).replace(/\s+/g, ' '), items: [] };
   }
+  return { ok: true, items: parseRSS(text) };
+}
+
+// Cadangan kalau Google gagal: Bing News RSS
+function bingUrl(q, hours) {
+  const clean = q.replace(/\s+OR\s+/g, ' OR ');
+  const interval = hours <= 6 ? '7' : '8'; // 7 = 1 jam terakhir.. dipakai longgar, nanti disaring jam terbit
+  return `https://www.bing.com/news/search?q=${encodeURIComponent(clean)}&format=rss&cc=ID&setlang=id&qft=${encodeURIComponent(`interval="${interval}"`)}`;
+}
+function unwrapBing(items) {
+  return items.map(it => {
+    let link = it.linkRaw;
+    try {
+      const u = new URL(link);
+      const real = u.searchParams.get('url');
+      if (real) link = real;
+    } catch {}
+    let domain = it.domain;
+    if (!domain) { try { domain = new URL(link).hostname.replace(/^www\./, ''); } catch {} }
+    return { ...it, linkRaw: link, domain, source: it.source || domain || 'Bing News' };
+  });
+}
+
+async function fetchSingleQuery(q, hours) {
+  return limited(async () => {
+    const isFeed = q.startsWith('FEED:');
+    const googleUrl = isFeed
+      ? q.slice(5)
+      : `https://news.google.com/rss/search?q=${encodeURIComponent(`${q} when:${hours + QUERY_EXTRA_HOURS}h`)}&hl=id&gl=ID&ceid=ID:id`;
+    let g;
+    try { g = await getRss(googleUrl); }
+    catch (e) { g = { ok: false, reason: e?.name === 'TimeoutError' ? 'timeout' : String(e?.message || e), items: [] }; }
+    if (g.ok && g.items.length) return { ...g, via: 'google' };
+    if (isFeed) return { ...g, via: 'google' };
+
+    // Google gagal / kosong -> coba Bing
+    try {
+      const b = await getRss(bingUrl(q, hours));
+      if (b.ok && b.items.length) return { ok: true, items: unwrapBing(b.items), via: 'bing', googleReason: g.reason || 'kosong' };
+      return { ok: g.ok, reason: g.reason || b.reason, items: g.items, via: 'google' };
+    } catch (e) {
+      return { ok: g.ok, reason: g.reason || String(e?.message || e), items: g.items, via: 'google' };
+    }
+  });
 }
 
 async function fetchTopic(topicId, hours) {
@@ -272,13 +328,14 @@ async function fetchTopic(topicId, hours) {
   const results = await Promise.all(queries.map(q => fetchSingleQuery(q, hours)));
 
   const failed = results.filter(r => !r.ok);
+  const perQuery = results.map((r, i) => ({ q: queries[i].slice(0, 50), ok: r.ok, n: r.items.length, via: r.via, reason: r.reason || r.googleReason || '' }));
   const allRaw = results.flatMap(r => r.items);
 
   const maxMinutes = hours * 60 + GRACE_MINUTES;
   const matcher = TOPIC_MATCHERS[topicId];
   const seen = new Set();
   const items = [];
-  const debug = { mentah: allRaw.length, lewatWaktu: 0, duplikat: 0, gagalKeyword: 0, blacklist: 0 };
+  const debug = { mentah: allRaw.length, lewatWaktu: 0, duplikat: 0, gagalKeyword: 0, blacklist: 0, perQuery };
 
   for (let i = 0; i < allRaw.length; i++) {
     const { titleFull, linkRaw, pubDateStr, source, domain } = allRaw[i];
@@ -355,12 +412,17 @@ export async function GET(req) {
       };
     }));
 
+    // Hasil yang kosong/gagal jangan disimpan di cache CDN, supaya refresh berikutnya langsung coba lagi
+    const totalBerita = topics.reduce((n, t) => n + t.headlines.length, 0);
+    const topikGagal = topics.filter(t => t.error).length;
+    const hasilJelek = totalBerita === 0 || topikGagal >= topics.length / 2;
+    const cacheHeader = (showDebug || hasilJelek)
+      ? 'no-store'
+      : `public, s-maxage=${CACHE_SECONDS}, stale-while-revalidate=${CACHE_SECONDS * 2}`;
+
     return NextResponse.json(
-      { success: true, filter: filterRaw, hours, lastSync: new Date().toISOString(), topics },
-      {
-        status: 200,
-        headers: { 'Cache-Control': `public, s-maxage=${CACHE_SECONDS}, stale-while-revalidate=${CACHE_SECONDS * 2}` },
-      }
+      { success: true, filter: filterRaw, hours, lastSync: new Date().toISOString(), totalBerita, topics },
+      { status: 200, headers: { 'Cache-Control': cacheHeader } }
     );
   } catch (e) {
     return NextResponse.json(
