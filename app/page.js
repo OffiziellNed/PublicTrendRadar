@@ -303,11 +303,15 @@ export default function Page() {
         html, body { background-color: #0a0a0f !important; margin:0; padding:0; width: 100%; height: auto; min-height: 100%; overflow-x: hidden; overflow-y: auto; -webkit-overflow-scrolling: touch; touch-action: pan-y; scrollbar-width: thin; scrollbar-color: #30363d #0a0a0f; }
         * { font-family: 'Geist', system-ui, -apple-system, 'Segoe UI', sans-serif; box-sizing: border-box; }
         .mono{font-family:'Geist Mono', ui-monospace, Menlo, monospace}
+        .topic-grid { display: grid; grid-template-columns: 1fr; gap: 16px; padding-bottom: 40px; align-items: stretch; }
+        @media (min-width: 700px) { .topic-grid { grid-template-columns: repeat(2, 1fr); } }
+        @media (min-width: 1000px) { .topic-grid { grid-template-columns: repeat(3, 1fr); } }
+        @media (min-width: 1280px) { .topic-grid { grid-template-columns: repeat(4, 1fr); } }
         button:focus-visible, a:focus-visible { outline: 2px solid #58a6ff; outline-offset: 2px; }
         ::-webkit-scrollbar { width: 8px; height: 8px; } ::-webkit-scrollbar-track { background: #0a0a0f; } ::-webkit-scrollbar-thumb { background: #30363d; border-radius: 4px; }
       `}</style>
 
-      <div style={{ width: '100%', maxWidth: '1120px', margin: '0 auto', padding: '20px 16px 80px 16px', backgroundColor: '#0a0a0f', minHeight: '100dvh' }}>
+      <div style={{ width: '100%', maxWidth: '1400px', margin: '0 auto', padding: '20px 16px 80px 16px', backgroundColor: '#0a0a0f', minHeight: '100dvh' }}>
         <div style={{ textAlign: 'center', marginBottom: '32px' }}>
           <h2 style={{ fontSize: '32px', fontWeight: '800' }}>Public Trend Radar</h2>
           <p style={{ color: '#8b949e', fontSize: '14px', marginTop: '6px' }}>Monitoring isu publik terupdate - REAL TIME.</p>
@@ -330,7 +334,7 @@ export default function Page() {
           </div>
         )}
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px', paddingBottom: '40px', alignItems: 'stretch' }}>
+        <div className="topic-grid">
           {analyzedTopics.map(topic => {
             const totalBerita = topic.headlines?.length || 0;
             const isuCount = topic.analyzed.length;
