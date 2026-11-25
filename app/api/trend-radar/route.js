@@ -31,9 +31,7 @@ const TOPIC_QUERIES = {
     'FEED:https://news.google.com/rss/headlines/section/topic/NATION?hl=id&gl=ID&ceid=ID:id',
     'Presiden Prabowo OR Istana OR Mensesneg OR Wapres OR Kabinet Merah Putih',
     'menteri OR kementerian OR reshuffle OR kebijakan pemerintah OR peraturan pemerintah',
-    'DPR RI OR Komisi DPR OR RUU OR rapat paripurna OR Baleg OR MPR',
     'TNI OR Polri OR Kapolri OR Panglima TNI OR Mahkamah Konstitusi OR Mahkamah Agung OR KPU OR Bawaslu',
-    'APBN OR subsidi OR harga BBM OR harga beras OR bansos OR Danantara OR makan bergizi gratis OR pajak',
     'partai politik OR Gerindra OR Golkar OR PKB OR NasDem OR PKS OR PAN OR Demokrat OR pemilu OR pilkada'
   ],
   bencana: ['bencana alam OR gempa bumi OR banjir'],
@@ -73,6 +71,30 @@ const TOPIC_QUERIES = {
     'curanmor OR maling OR pencurian OR perampokan OR begal',
     'KDRT OR penganiayaan OR pengeroyokan OR pembacokan',
     'pemerkosaan OR penipuan OR mayat ditemukan OR mutilasi OR tawuran'
+  ],
+  pendidikan: [
+    'guru honorer OR PPPK guru OR tunjangan guru OR gaji guru OR sertifikasi guru',
+    'SPMB OR penerimaan murid baru OR zonasi OR TKA OR kurikulum OR Kemendikdasmen',
+    'UKT OR biaya kuliah OR KIP Kuliah OR beasiswa OR mahasiswa OR rektor OR kampus',
+    'perundungan siswa OR bullying sekolah OR sekolah rusak OR siswa putus sekolah OR guru viral'
+  ],
+  ekonomi_rakyat: [
+    'harga beras OR harga cabai OR harga minyak goreng OR harga sembako OR harga pangan',
+    'harga BBM OR Pertalite OR LPG 3 kg OR tarif listrik OR iuran BPJS OR tarif tol',
+    'PHK OR pengangguran OR UMP OR UMR OR upah minimum OR lapangan kerja OR buruh',
+    'pajak OR PPN OR daya beli OR kelas menengah OR inflasi OR rupiah melemah OR utang negara'
+  ],
+  dpr: [
+    'DPR RI OR anggota DPR OR Komisi DPR OR rapat paripurna OR Baleg DPR',
+    'RUU OR revisi UU OR RUU KUHAP OR RUU Perampasan Aset OR RUU Polri OR RUU Penyiaran',
+    'tunjangan DPR OR gaji DPR OR fasilitas DPR OR reses DPR OR kunjungan kerja DPR',
+    'MKD DPR OR fraksi OR hak angket OR interpelasi OR legislator OR wakil rakyat'
+  ],
+  program_pemerintah: [
+    'makan bergizi gratis OR MBG OR Badan Gizi Nasional OR SPPG OR keracunan MBG',
+    'Danantara OR Koperasi Desa Merah Putih OR Kopdes Merah Putih',
+    'Sekolah Rakyat OR cek kesehatan gratis OR 3 juta rumah OR program rumah subsidi',
+    'swasembada pangan OR food estate OR lumbung pangan OR hilirisasi OR program prioritas Presiden'
   ],
   korupsi_kpk: [
     'korupsi OR kasus korupsi OR korupsi timah OR korupsi pertamina OR korupsi bansos',
@@ -121,6 +143,19 @@ const TOPIC_FILTERS = {
   ],
 };
 
+Object.assign(TOPIC_FILTERS, {
+  pendidikan: ['guru','honorer','pppk','murid','siswa','pelajar','sekolah','madrasah','pesantren','kurikulum','spmb','ppdb','zonasi','tka','ujian','mahasiswa','kampus','kuliah','ukt','rektor','dosen','universitas','beasiswa','kip kuliah','perundungan','bullying','kemendikdasmen','mendikdasmen','kemdiktisaintek','pendidikan'],
+  ekonomi_rakyat: ['harga','beras','cabai','minyak goreng','sembako','pangan','bbm','pertalite','solar','lpg','elpiji','listrik','tarif','bpjs','phk','di-phk','pengangguran','pesangon','ump','umr','upah','gaji','buruh','pekerja','pajak','ppn','daya beli','kelas menengah','inflasi','rupiah','utang','pinjol','bansos','blt','subsidi'],
+  dpr: ['dpr','dpr ri','anggota dewan','wakil rakyat','legislator','komisi','paripurna','baleg','fraksi','ruu','revisi uu','undang-undang','mkd','reses','tunjangan dewan','hak angket','interpelasi','senayan'],
+  program_pemerintah: ['mbg','makan bergizi','makan gratis','bgn','badan gizi','sppg','dapur mbg','danantara','koperasi merah putih','koperasi desa merah putih','kopdes','sekolah rakyat','cek kesehatan gratis','ckg','3 juta rumah','rumah subsidi','swasembada','food estate','lumbung pangan','hilirisasi','program prioritas','asta cita'],
+});
+
+// Kata yang membuat judul DIBUANG dari topik tertentu
+const TOPIC_EXCLUDE = {
+  pendidikan: ['sepak bola','sepakbola','liga','timnas'],
+  ekonomi_rakyat: ['saham','ihsg','kripto','bitcoin'],
+};
+
 const TOPIC_META = {
   jakarta: { title: 'Jakarta', icon: '🏙️' },
   nasional: { title: 'Berita Nasional', icon: '📰' },
@@ -134,9 +169,13 @@ const TOPIC_META = {
   sosial: { title: 'Sosial & Viral', icon: '💬' },
   kriminal: { title: 'Kriminal', icon: '🦹' },
   korupsi_kpk: { title: 'Berita Korupsi', icon: '💰' },
+  pendidikan: { title: 'Dunia Pendidikan', icon: '🎓' },
+  ekonomi_rakyat: { title: 'Ekonomi Rakyat', icon: '🛒' },
+  dpr: { title: 'DPR', icon: '🪑' },
+  program_pemerintah: { title: 'Program Pemerintah', icon: '🍱' },
 };
 
-const TOPIC_ORDER = ['jakarta','nasional','bencana','pdip','megawati','puan','kritik_publik','dedi_mulyadi','keluarga_jokowi','sosial','kriminal','korupsi_kpk'];
+const TOPIC_ORDER = ['jakarta','nasional','bencana','pdip','megawati','puan','kritik_publik','dedi_mulyadi','keluarga_jokowi','sosial','kriminal','korupsi_kpk','pendidikan','ekonomi_rakyat','dpr','program_pemerintah'];
 
 const SPORT_BLACKLIST = [
   'motogp','moto gp','pebalap','pembalap','formula 1','f1',
@@ -168,6 +207,7 @@ const TOPIC_MATCHERS = Object.fromEntries(Object.entries(TOPIC_FILTERS).map(([id
 const SPORT_MATCHER = buildMatcher(SPORT_BLACKLIST);
 const FOREIGN_MATCHER = buildMatcher(FOREIGN_BLACKLIST);
 const MEGAWATI_ATLET_MATCHER = buildMatcher(MEGAWATI_ATLET);
+const EXCLUDE_MATCHERS = Object.fromEntries(Object.entries(TOPIC_EXCLUDE).map(([id, kws]) => [id, buildMatcher(kws)]));
 
 // ---------- Helpers ----------
 function formatTimeAgo(minutes) {
@@ -358,6 +398,7 @@ async function fetchTopic(topicId, hours) {
       if (SPORT_MATCHER.test(t) || FOREIGN_MATCHER.test(t)) { debug.blacklist++; continue; }
     }
     if (topicId === 'megawati' && MEGAWATI_ATLET_MATCHER.test(t)) { debug.blacklist++; continue; }
+    if (EXCLUDE_MATCHERS[topicId]?.test(t)) { debug.blacklist++; continue; }
 
     const url = linkRaw.replace(/&amp;/g, '&');
     items.push({
